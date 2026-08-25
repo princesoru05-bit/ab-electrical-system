@@ -1,0 +1,4 @@
+node_modules/
+uploads/
+service-account.json
+auth.js
