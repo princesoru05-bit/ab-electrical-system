@@ -3,24 +3,23 @@ const multer = require('multer');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const { streamifier } = require('streamifier');
 const { google } = require('googleapis');
 
 const app = express();
 
-// --- 1. SETTING GOOGLE CONTACTS OAUTH2 ---
+// --- 1. SETTING GOOGLE OAUTH2 (MANAGER UTAMA: princesorustorage05) ---
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
 
-const oauth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET
-);
-
+const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
 oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
-const peopleService = google.people({ version: 'v1', auth: oauth2Client });
 
-// Auto-Create Contact
+const peopleService = google.people({ version: 'v1', auth: oauth2Client });
+const driveService = google.drive({ version: 'v3', auth: oauth2Client });
+
+// --- FUNGSI 1: AUTO-ADD GOOGLE CONTACT ---
 async function createGoogleContact(nama, phone, orderId, jenisBarang) {
     try {
         let formattedPhone = phone.trim();
@@ -41,14 +40,62 @@ async function createGoogleContact(nama, phone, orderId, jenisBarang) {
     }
 }
 
-// --- 2. SETTING MIDDLEWARE & STATIC FILES ---
+// --- FUNGSI 2: AUTO-UPLOAD FOLDER & FAIL KE GOOGLE DRIVE ---
+async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName) {
+    try {
+        // 1. Buat Sub-folder mengikut orderId di Google Drive
+        const folderMetadata = {
+            name: orderId,
+            mimeType: 'application/vnd.google-apps.folder'
+        };
+        const folderRes = await driveService.files.create({
+            resource: folderMetadata,
+            fields: 'id'
+        });
+        const folderId = folderRes.data.id;
+
+        // 2. Upload Fail PDF Resit ke Folder Drive
+        const pdfMetadata = {
+            name: `${orderId}.pdf`,
+            parents: [folderId]
+        };
+        await driveService.files.create({
+            resource: pdfMetadata,
+            media: {
+                mimeType: 'application/pdf',
+                body: fs.createReadStream(pdfBuffer)
+            }
+        });
+
+        // 3. Upload Gambar Kerosakan (jika ada) ke Folder Drive
+        if (imageBuffer && imageFileName) {
+            const imageMetadata = {
+                name: imageFileName,
+                parents: [folderId]
+            };
+            await driveService.files.create({
+                resource: imageMetadata,
+                media: {
+                    mimeType: 'image/jpeg',
+                    body: fs.createReadStream(imageBuffer)
+                }
+            });
+        }
+
+        console.log(`✅ [GOOGLE DRIVE] UPLOAD BERJAYA KE FOLDER: ${orderId}`);
+    } catch (err) {
+        console.error('❌ [GOOGLE DRIVE ERROR]:', err.response ? JSON.stringify(err.response.data) : err.message);
+    }
+}
+
+// --- 2. SETTING MULTER & MIDDLEWARE ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(__dirname)); // Direct serve fail statik dalam folder root
+app.use(express.static(__dirname));
 
-// ROUTE HALAMAN UTAMA (FIX FOR NOT FOUND)
+// Route Utama (Index Form)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -64,31 +111,37 @@ app.get('/download-pdf/:orderId', (req, res) => {
     }
 });
 
-let orderCounter = 551; 
+let orderCounter = 551;
 
 // --- 3. SUBMIT FORM HANDLER ---
 app.post('/submit-service', upload.single('gambar'), async (req, res) => {
     const { nama, phone, alamat, jenis_barang, model, masalah } = req.body;
-    
     const orderId = `KOD-${String(orderCounter++).padStart(4, '0')}`;
-    
+
+    // 1. Auto-Add Contact ke Google Contacts
     await createGoogleContact(nama, phone, orderId, jenis_barang);
 
+    // 2. Buat Folder Tempatan Sementara
     const clientFolderPath = path.join(__dirname, 'uploads', orderId);
     if (!fs.existsSync(clientFolderPath)) {
         fs.mkdirSync(clientFolderPath, { recursive: true });
     }
 
+    // 3. Simpan Gambar Tempatan
     let imagePath = null;
+    let imageFileName = null;
     if (req.file) {
         const ext = path.extname(req.file.originalname) || '.jpg';
-        imagePath = path.join(clientFolderPath, `gambar_${orderId}${ext}`);
+        imageFileName = `gambar_${orderId}${ext}`;
+        imagePath = path.join(clientFolderPath, imageFileName);
         fs.writeFileSync(imagePath, req.file.buffer);
     }
 
+    // 4. Generator PDF Resit
     const pdfPath = path.join(clientFolderPath, `${orderId}.pdf`);
     const doc = new PDFDocument();
-    doc.pipe(fs.createWriteStream(pdfPath));
+    const writeStream = fs.createWriteStream(pdfPath);
+    doc.pipe(writeStream);
 
     doc.fontSize(20).text('AB ELECTRICAL ENGINEERING', { align: 'center' });
     doc.fontSize(12).text(`NO. RESIT / KOD: ${orderId}`, { align: 'center' });
@@ -111,6 +164,12 @@ app.post('/submit-service', upload.single('gambar'), async (req, res) => {
 
     doc.end();
 
+    // 5. Auto-Upload ke Google Drive sebaik sahaja PDF siap ditulis
+    writeStream.on('finish', async () => {
+        await uploadToGoogleDrive(orderId, pdfPath, imagePath, imageFileName);
+    });
+
+    // 6. Link WhatsApp Mekanik
     const noMekanik = '60195254754';
     const textWA = encodeURIComponent(`Salam AB Electrical, saya dah hantar borang rujukan *${orderId}* (${nama}) untuk baiki ${jenis_barang}.`);
     const waLink = `https://wa.me/${noMekanik}?text=${textWA}`;
