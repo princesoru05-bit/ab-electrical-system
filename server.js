@@ -3,12 +3,12 @@ const multer = require('multer');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
-const { streamifier } = require('streamifier');
+const streamifier = require('streamifier');
 const { google } = require('googleapis');
 
 const app = express();
 
-// --- 1. SETTING GOOGLE OAUTH2 (MANAGER UTAMA: princesorustorage05) ---
+// --- 1. SETTING GOOGLE OAUTH2 (MANAGER: princesorustorage05) ---
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
@@ -54,7 +54,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
         });
         const folderId = folderRes.data.id;
 
-        // 2. Upload Fail PDF Resit ke Folder Drive
+        // 2. Upload Fail PDF Resit dari Buffer
         const pdfMetadata = {
             name: `${orderId}.pdf`,
             parents: [folderId]
@@ -63,11 +63,11 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
             resource: pdfMetadata,
             media: {
                 mimeType: 'application/pdf',
-                body: fs.createReadStream(pdfBuffer)
+                body: streamifier.createReadStream(pdfBuffer)
             }
         });
 
-        // 3. Upload Gambar Kerosakan (jika ada) ke Folder Drive
+        // 3. Upload Gambar Kerosakan (jika ada) dari Buffer
         if (imageBuffer && imageFileName) {
             const imageMetadata = {
                 name: imageFileName,
@@ -77,7 +77,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
                 resource: imageMetadata,
                 media: {
                     mimeType: 'image/jpeg',
-                    body: fs.createReadStream(imageBuffer)
+                    body: streamifier.createReadStream(imageBuffer)
                 }
             });
         }
@@ -100,14 +100,19 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Route Download PDF
+// Route Download PDF (Menggunakan Dynamic PDF Buffer)
+const pdfStore = new Map();
+
 app.get('/download-pdf/:orderId', (req, res) => {
     const orderId = req.params.orderId;
-    const pdfPath = path.join(__dirname, 'uploads', orderId, `${orderId}.pdf`);
-    if (fs.existsSync(pdfPath)) {
-        res.download(pdfPath);
+    const pdfBuffer = pdfStore.get(orderId);
+    
+    if (pdfBuffer) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${orderId}.pdf`);
+        res.send(pdfBuffer);
     } else {
-        res.status(404).send('Fail PDF tidak dijumpai');
+        res.status(404).send('Fail PDF tidak dijumpai atau telah tamat tempoh.');
     }
 });
 
@@ -121,27 +126,27 @@ app.post('/submit-service', upload.single('gambar'), async (req, res) => {
     // 1. Auto-Add Contact ke Google Contacts
     await createGoogleContact(nama, phone, orderId, jenis_barang);
 
-    // 2. Buat Folder Tempatan Sementara
-    const clientFolderPath = path.join(__dirname, 'uploads', orderId);
-    if (!fs.existsSync(clientFolderPath)) {
-        fs.mkdirSync(clientFolderPath, { recursive: true });
-    }
-
-    // 3. Simpan Gambar Tempatan
-    let imagePath = null;
-    let imageFileName = null;
-    if (req.file) {
-        const ext = path.extname(req.file.originalname) || '.jpg';
-        imageFileName = `gambar_${orderId}${ext}`;
-        imagePath = path.join(clientFolderPath, imageFileName);
-        fs.writeFileSync(imagePath, req.file.buffer);
-    }
-
-    // 4. Generator PDF Resit
-    const pdfPath = path.join(clientFolderPath, `${orderId}.pdf`);
+    // 2. Sediakan PDF dalam bentuk Buffer
     const doc = new PDFDocument();
-    const writeStream = fs.createWriteStream(pdfPath);
-    doc.pipe(writeStream);
+    let buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    
+    doc.on('end', async () => {
+        const pdfBuffer = Buffer.concat(buffers);
+        pdfStore.set(orderId, pdfBuffer); // Simpan sementara untuk muat turun client
+
+        // Ambil maklumat gambar jika ada
+        let imageBuffer = null;
+        let imageFileName = null;
+        if (req.file) {
+            imageBuffer = req.file.buffer;
+            const ext = path.extname(req.file.originalname) || '.jpg';
+            imageFileName = `gambar_${orderId}${ext}`;
+        }
+
+        // Auto Upload ke Google Drive
+        await uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName);
+    });
 
     doc.fontSize(20).text('AB ELECTRICAL ENGINEERING', { align: 'center' });
     doc.fontSize(12).text(`NO. RESIT / KOD: ${orderId}`, { align: 'center' });
@@ -156,20 +161,15 @@ app.post('/submit-service', upload.single('gambar'), async (req, res) => {
     doc.text(`--------------------------------------------------`);
     doc.moveDown();
 
-    if (imagePath) {
+    if (req.file) {
         doc.text('GAMBAR KEROSAKAN:', { underline: true });
         doc.moveDown(0.5);
-        doc.image(imagePath, { fit: [300, 200], align: 'center' });
+        doc.image(req.file.buffer, { fit: [300, 200], align: 'center' });
     }
 
     doc.end();
 
-    // 5. Auto-Upload ke Google Drive sebaik sahaja PDF siap ditulis
-    writeStream.on('finish', async () => {
-        await uploadToGoogleDrive(orderId, pdfPath, imagePath, imageFileName);
-    });
-
-    // 6. Link WhatsApp Mekanik
+    // 3. Link WhatsApp Manager
     const noMekanik = '60195254754';
     const textWA = encodeURIComponent(`Salam AB Electrical, saya dah hantar borang rujukan *${orderId}* (${nama}) untuk baiki ${jenis_barang}.`);
     const waLink = `https://wa.me/${noMekanik}?text=${textWA}`;
@@ -190,7 +190,7 @@ app.post('/submit-service', upload.single('gambar'), async (req, res) => {
                 
                 <div class="space-y-3 my-6">
                     <a href="${waLink}" target="_blank" class="block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow transition duration-200">
-                        📱 Hantar Notis ke WhatsApp Mekanik
+                        📱 Hantar Notis ke WhatsApp Manager
                     </a>
                     
                     <a href="/download-pdf/${orderId}" class="block w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow transition duration-200">
