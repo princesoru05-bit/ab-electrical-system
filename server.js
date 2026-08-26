@@ -43,10 +43,14 @@ async function createGoogleContact(nama, phone, orderId, jenisBarang) {
 // --- FUNGSI 2: AUTO-UPLOAD FOLDER & FAIL KE GOOGLE DRIVE ---
 async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName) {
     try {
-        // 1. Buat Sub-folder mengikut orderId di Google Drive
+        // ID Folder Utama Google Drive princesorustorage05
+        const PARENT_FOLDER_ID = '1BtDqeFE14W0OhSaa3CUCDzIQrUBH9Css';
+
+        // 1. Buat Sub-folder mengikut orderId di dalam Folder Utama
         const folderMetadata = {
             name: orderId,
-            mimeType: 'application/vnd.google-apps.folder'
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [PARENT_FOLDER_ID]
         };
         const folderRes = await driveService.files.create({
             resource: folderMetadata,
@@ -82,9 +86,9 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
             });
         }
 
-        console.log(`✅ [GOOGLE DRIVE] UPLOAD BERJAYA KE FOLDER: ${orderId}`);
+        console.log(`✅ [GOOGLE DRIVE SUCCESS] Fail & Folder ${orderId} berjaya dimuat naik ke Drive!`);
     } catch (err) {
-        console.error('❌ [GOOGLE DRIVE ERROR]:', err.response ? JSON.stringify(err.response.data) : err.message);
+        console.error('❌ [GOOGLE DRIVE ERROR DETAIL]:', err.response ? JSON.stringify(err.response.data) : err.message);
     }
 }
 
