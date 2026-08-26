@@ -43,28 +43,25 @@ async function createGoogleContact(nama, phone, orderId, jenisBarang) {
 // --- FUNGSI 2: AUTO-UPLOAD FOLDER & FAIL KE GOOGLE DRIVE ---
 async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName) {
     try {
-        // ID Folder Utama Google Drive princesorustorage05
         const PARENT_FOLDER_ID = '1BtDqeFE14W0OhSaa3CUCDzIQrUBH9Css';
 
-        // 1. Buat Sub-folder mengikut orderId di dalam Folder Utama
-        const folderMetadata = {
-            name: orderId,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [PARENT_FOLDER_ID]
-        };
+        // 1. Buat Sub-folder mengikut orderId di Google Drive
         const folderRes = await driveService.files.create({
-            resource: folderMetadata,
+            requestBody: {
+                name: orderId,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [PARENT_FOLDER_ID]
+            },
             fields: 'id'
         });
         const folderId = folderRes.data.id;
 
         // 2. Upload Fail PDF Resit dari Buffer
-        const pdfMetadata = {
-            name: `${orderId}.pdf`,
-            parents: [folderId]
-        };
         await driveService.files.create({
-            resource: pdfMetadata,
+            requestBody: {
+                name: `${orderId}.pdf`,
+                parents: [folderId]
+            },
             media: {
                 mimeType: 'application/pdf',
                 body: streamifier.createReadStream(pdfBuffer)
@@ -73,12 +70,11 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
 
         // 3. Upload Gambar Kerosakan (jika ada) dari Buffer
         if (imageBuffer && imageFileName) {
-            const imageMetadata = {
-                name: imageFileName,
-                parents: [folderId]
-            };
             await driveService.files.create({
-                resource: imageMetadata,
+                requestBody: {
+                    name: imageFileName,
+                    parents: [folderId]
+                },
                 media: {
                     mimeType: 'image/jpeg',
                     body: streamifier.createReadStream(imageBuffer)
@@ -92,6 +88,39 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
     }
 }
 
+// --- FUNGSI KAWALAN GENERATE PDF ---
+function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageBuffer) {
+    return new Promise((resolve, reject) => {
+        const doc = new PDFDocument();
+        let buffers = [];
+
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+
+        doc.fontSize(20).text('AB ELECTRICAL ENGINEERING', { align: 'center' });
+        doc.fontSize(12).text(`NO. RESIT / KOD: ${orderId}`, { align: 'center' });
+        doc.moveDown();
+        doc.text(`--------------------------------------------------`);
+        doc.text(`Nama Pelanggan: ${nama}`);
+        doc.text(`No. Telefon: ${phone}`);
+        doc.text(`Alamat: ${alamat}`);
+        doc.text(`Jenis Barangan: ${jenis_barang}`);
+        doc.text(`Model: ${model || 'Tiada Maklumat'}`);
+        doc.text(`Masalah: ${masalah}`);
+        doc.text(`--------------------------------------------------`);
+        doc.moveDown();
+
+        if (imageBuffer) {
+            doc.text('GAMBAR KEROSAKAN:', { underline: true });
+            doc.moveDown(0.5);
+            doc.image(imageBuffer, { fit: [300, 200], align: 'center' });
+        }
+
+        doc.end();
+    });
+}
+
 // --- 2. SETTING MULTER & MIDDLEWARE ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -99,12 +128,10 @@ const upload = multer({ storage: storage });
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
-// Route Utama (Index Form)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Route Download PDF (Menggunakan Dynamic PDF Buffer)
 const pdfStore = new Map();
 
 app.get('/download-pdf/:orderId', (req, res) => {
@@ -127,51 +154,22 @@ app.post('/submit-service', upload.single('gambar'), async (req, res) => {
     const { nama, phone, alamat, jenis_barang, model, masalah } = req.body;
     const orderId = `KOD-${String(orderCounter++).padStart(4, '0')}`;
 
-    // 1. Auto-Add Contact ke Google Contacts
-    await createGoogleContact(nama, phone, orderId, jenis_barang);
-
-    // 2. Sediakan PDF dalam bentuk Buffer
-    const doc = new PDFDocument();
-    let buffers = [];
-    doc.on('data', buffers.push.bind(buffers));
-    
-    doc.on('end', async () => {
-        const pdfBuffer = Buffer.concat(buffers);
-        pdfStore.set(orderId, pdfBuffer); // Simpan sementara untuk muat turun client
-
-        // Ambil maklumat gambar jika ada
-        let imageBuffer = null;
-        let imageFileName = null;
-        if (req.file) {
-            imageBuffer = req.file.buffer;
-            const ext = path.extname(req.file.originalname) || '.jpg';
-            imageFileName = `gambar_${orderId}${ext}`;
-        }
-
-        // Auto Upload ke Google Drive
-        await uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName);
-    });
-
-    doc.fontSize(20).text('AB ELECTRICAL ENGINEERING', { align: 'center' });
-    doc.fontSize(12).text(`NO. RESIT / KOD: ${orderId}`, { align: 'center' });
-    doc.moveDown();
-    doc.text(`--------------------------------------------------`);
-    doc.text(`Nama Pelanggan: ${nama}`);
-    doc.text(`No. Telefon: ${phone}`);
-    doc.text(`Alamat: ${alamat}`);
-    doc.text(`Jenis Barangan: ${jenis_barang}`);
-    doc.text(`Model: ${model || 'Tiada Maklumat'}`);
-    doc.text(`Masalah: ${masalah}`);
-    doc.text(`--------------------------------------------------`);
-    doc.moveDown();
-
+    let imageBuffer = req.file ? req.file.buffer : null;
+    let imageFileName = null;
     if (req.file) {
-        doc.text('GAMBAR KEROSAKAN:', { underline: true });
-        doc.moveDown(0.5);
-        doc.image(req.file.buffer, { fit: [300, 200], align: 'center' });
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        imageFileName = `gambar_${orderId}${ext}`;
     }
 
-    doc.end();
+    // 1. Generate PDF Buffer secara lengkap
+    const pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageBuffer);
+    pdfStore.set(orderId, pdfBuffer);
+
+    // 2. Add Google Contact & Upload ke Drive secara serentak
+    await Promise.all([
+        createGoogleContact(nama, phone, orderId, jenis_barang),
+        uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName)
+    ]);
 
     // 3. Link WhatsApp Manager
     const noMekanik = '60195254754';
