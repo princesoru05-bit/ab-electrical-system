@@ -84,7 +84,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
 }
 
 // --- FUNGSI KAWALAN GENERATE PDF ---
-function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles) {
+function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles, tarikhHantar) {
     return new Promise((resolve, reject) => {
         const doc = new PDFDocument();
         let buffers = [];
@@ -93,30 +93,73 @@ function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, ma
         doc.on('end', () => resolve(Buffer.concat(buffers)));
         doc.on('error', reject);
 
-        doc.fontSize(20).text('AB ELECTRICAL ENGINEERING', { align: 'center' });
-        doc.fontSize(12).text(`NO. RESIT / KOD: ${orderId}`, { align: 'center' });
-        doc.moveDown();
-        doc.text(`--------------------------------------------------`);
-        doc.text(`Nama Pelanggan: ${nama}`);
-        doc.text(`No. Telefon: ${phone}`);
-        doc.text(`Alamat: ${alamat}`);
-        doc.text(`Jenis Barangan: ${jenis_barang}`);
-        doc.text(`Model: ${model || 'Tiada Maklumat'}`);
-        doc.text(`Masalah: ${masalah}`);
-        doc.text(`--------------------------------------------------`);
-        doc.moveDown();
+        const orange = '#f97316';
+        const ink = '#171310';
+        const muted = '#57534e';
+        const pageWidth = doc.page.width;
+        const left = 48;
+        const contentWidth = pageWidth - (left * 2);
+        const safe = (value) => String(value || 'Tiada maklumat');
+        const field = (label, value, x, y, width) => {
+            doc.font('Helvetica-Bold').fontSize(8).fillColor(muted).text(label.toUpperCase(), x, y, { width, characterSpacing: .5 });
+            doc.font('Helvetica').fontSize(11).fillColor(ink).text(safe(value), x, y + 13, { width, height: 34, ellipsis: true });
+        };
+
+        // Header identiti AB Electrical (gelap + aksen oren seperti laman utama)
+        doc.rect(0, 0, pageWidth, 112).fill(ink);
+        doc.rect(0, 108, pageWidth, 4).fill(orange);
+        doc.circle(left + 22, 50, 22).fill(orange);
+        doc.font('Helvetica-Bold').fontSize(14).fillColor('#ffffff').text('AB', left + 9, 42, { width: 28, align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(18).fillColor('#ffffff').text('AB ELECTRICAL ENGINEERING', left + 58, 31);
+        doc.font('Helvetica').fontSize(9).fillColor('#d6d3d1').text('PAKAR PEMBAIKAN BARANGAN ELEKTRIK', left + 59, 56, { characterSpacing: 1.1 });
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(orange).text('RESIT LAPORAN SERVIS', left + 59, 76);
+        doc.font('Helvetica-Bold').fontSize(12).fillColor('#ffffff').text(orderId, pageWidth - left - 150, 47, { width: 150, align: 'right' });
+
+        doc.y = 142;
+        doc.font('Helvetica-Bold').fontSize(17).fillColor(ink).text('Ringkasan Laporan Servis');
+        doc.moveDown(.35);
+        doc.font('Helvetica').fontSize(9).fillColor(muted).text('Maklumat ini direkod secara automatik ketika borang dihantar.');
+        doc.moveDown(1.1);
+
+        const cardTop = doc.y;
+        doc.roundedRect(left, cardTop, contentWidth, 137, 8).fillAndStroke('#fff7ed', '#fed7aa');
+        field('Nama pelanggan', nama, left + 16, cardTop + 16, 220);
+        field('No. telefon', phone, left + 270, cardTop + 16, 215);
+        field('Jenis barangan', jenis_barang, left + 16, cardTop + 67, 220);
+        field('Jenama & model', model, left + 270, cardTop + 67, 215);
+        field('Tarikh hantar', tarikhHantar, left + 16, cardTop + 112, contentWidth - 32);
+        doc.y = cardTop + 160;
+
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Alamat pelanggan');
+        doc.moveDown(.35);
+        doc.roundedRect(left, doc.y, contentWidth, 42, 6).fillAndStroke('#fafaf9', '#e7e5e4');
+        doc.font('Helvetica').fontSize(10).fillColor(ink).text(safe(alamat), left + 12, doc.y + 12, { width: contentWidth - 24, height: 22, ellipsis: true });
+        doc.y += 62;
+
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Keterangan masalah');
+        doc.moveDown(.35);
+        const problemTop = doc.y;
+        doc.roundedRect(left, problemTop, contentWidth, 72, 6).fillAndStroke('#fafaf9', '#e7e5e4');
+        doc.font('Helvetica').fontSize(10).fillColor(ink).text(safe(masalah), left + 12, problemTop + 12, { width: contentWidth - 24, height: 50 });
+        doc.y = problemTop + 98;
 
         if (imageFiles && imageFiles.length) {
-            doc.text('GAMBAR KEROSAKAN:', { underline: true });
+            doc.font('Helvetica-Bold').fontSize(13).fillColor(ink).text(`Gambar kerosakan (${imageFiles.length})`);
+            doc.moveDown(.5);
             imageFiles.forEach((file, index) => {
-                if (doc.y > 500) doc.addPage();
-                doc.moveDown(0.5);
-                doc.fontSize(10).text(`Gambar ${index + 1}: ${file.originalname}`);
-                doc.moveDown(0.25);
-                doc.image(file.buffer, { fit: [300, 200], align: 'center' });
-                doc.moveDown();
+                if (doc.y > 535) doc.addPage();
+                const imageTop = doc.y;
+                doc.roundedRect(left, imageTop, contentWidth, 225, 7).fillAndStroke('#fafaf9', '#e7e5e4');
+                doc.font('Helvetica-Bold').fontSize(9).fillColor(orange).text(`GAMBAR ${index + 1}`, left + 12, imageTop + 10);
+                doc.font('Helvetica').fontSize(8).fillColor(muted).text(safe(file.originalname), left + 88, imageTop + 10, { width: contentWidth - 100, ellipsis: true });
+                doc.image(file.buffer, { fit: [contentWidth - 24, 190], align: 'center', valign: 'center', x: left + 12, y: imageTop + 28 });
+                doc.y = imageTop + 239;
             });
         }
+
+        const footerY = doc.page.height - 42;
+        doc.moveTo(left, footerY - 10).lineTo(pageWidth - left, footerY - 10).lineWidth(.5).strokeColor('#e7e5e4').stroke();
+        doc.font('Helvetica').fontSize(8).fillColor(muted).text('AB Electrical Engineering  ·  Terima kasih kerana memilih kami.', left, footerY, { width: contentWidth, align: 'center' });
 
         doc.end();
     });
@@ -179,7 +222,11 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
     const imageFiles = req.files || [];
 
     // 1. Generate PDF Buffer secara lengkap
-    const pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles);
+    // Masa rasmi direkod ketika submit mengikut timezone Malaysia, bukan timezone server.
+    const tarikhHantar = new Date().toLocaleString('ms-MY', {
+        timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'long', timeStyle: 'short'
+    });
+    const pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles, tarikhHantar);
     pdfStore.set(orderId, pdfBuffer);
 
     // 2. Add Google Contact & Upload ke Drive secara serentak
@@ -193,7 +240,7 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
     const textWA = encodeURIComponent(`Salam AB Electrical, saya dah hantar borang rujukan *${orderId}* (${nama}) untuk baiki ${jenis_barang}.`);
     const waLink = `https://wa.me/${noMekanik}?text=${textWA}`;
 
-    const tarikh = new Date().toLocaleString('ms-MY', { dateStyle: 'long', timeStyle: 'short' });
+    const tarikh = tarikhHantar;
 
     const row = (label, value) => `
                         <div class="flex items-start justify-between gap-4 py-2.5 border-b border-stone-800 last:border-0">
