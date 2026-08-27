@@ -2526,9 +2526,12 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
     </div>
   </div>
 
+  <style>#imageModal.hidden { display: none !important; }</style>
   <div id="imageModal" class="hidden fixed inset-0 z-50 p-4 bg-black/85 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Pratonton gambar">
     <button type="button" id="modalClose" class="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-red-600 text-white text-2xl" aria-label="Tutup pratonton">&times;</button>
+    <button type="button" id="modalPrev" class="absolute left-4 sm:left-8 w-10 h-10 rounded-full bg-white/10 hover:bg-orange-500 text-white text-2xl" aria-label="Gambar sebelumnya">‹</button>
     <img id="modalImage" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" alt="Pratonton gambar penuh">
+    <button type="button" id="modalNext" class="absolute right-4 sm:right-8 w-10 h-10 rounded-full bg-white/10 hover:bg-orange-500 text-white text-2xl" aria-label="Gambar seterusnya">›</button>
   </div>
 
   <script>
@@ -2543,10 +2546,13 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
       var modal = document.getElementById('imageModal');
       var modalImage = document.getElementById('modalImage');
       var modalClose = document.getElementById('modalClose');
+      var modalPrev = document.getElementById('modalPrev');
+      var modalNext = document.getElementById('modalNext');
       if (!input) return;
 
       var images = [];
       var maxImages = 8;
+      var modalIndex = 0;
 
       function saiz(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -2571,7 +2577,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
           image.src = item.url;
           image.alt = 'Pratonton ' + item.file.name;
           image.className = 'w-12 h-12 shrink-0 object-cover rounded-md cursor-zoom-in hover:opacity-80 transition';
-          image.addEventListener('click', function () { modalImage.src = item.url; modal.classList.remove('hidden'); });
+          image.addEventListener('click', function () { openModal(index); });
           var remove = document.createElement('button');
           remove.type = 'button'; remove.className = 'ml-auto shrink-0 w-8 h-8 rounded-md border border-stone-700 hover:border-red-500 hover:bg-red-600 text-stone-400 hover:text-white font-bold transition';
           remove.setAttribute('aria-label', 'Buang ' + item.file.name); remove.textContent = '×';
@@ -2581,8 +2587,20 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
           card.appendChild(image); card.appendChild(remove); card.appendChild(name); previewList.appendChild(card);
         });
         previewBox.classList.toggle('hidden', images.length === 0);
-        uploadPrompt.classList.toggle('hidden', images.length >= maxImages);
+        uploadPrompt.classList.toggle('hidden', images.length > 0);
         btnTambah.classList.toggle('hidden', images.length >= maxImages);
+        uploadBox.classList.toggle('border-dashed', images.length === 0);
+        uploadBox.classList.toggle('border-solid', images.length > 0);
+      }
+
+      function openModal(index) {
+        if (!images[index]) return;
+        modalIndex = index;
+        modalImage.src = images[index].url;
+        modalImage.alt = 'Pratonton ' + images[index].file.name;
+        modalPrev.classList.toggle('hidden', images.length < 2);
+        modalNext.classList.toggle('hidden', images.length < 2);
+        modal.classList.remove('hidden');
       }
 
       function addFiles(files) {
@@ -2604,8 +2622,15 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
       ['dragleave', 'drop'].forEach(function (eventName) { uploadBox.addEventListener(eventName, function (event) { event.preventDefault(); uploadBox.classList.remove('border-orange-500', 'bg-orange-500/10'); }); });
       uploadBox.addEventListener('drop', function (event) { addFiles(event.dataTransfer.files); });
       modalClose.addEventListener('click', function () { modal.classList.add('hidden'); modalImage.removeAttribute('src'); });
+      modalPrev.addEventListener('click', function () { openModal((modalIndex - 1 + images.length) % images.length); });
+      modalNext.addEventListener('click', function () { openModal((modalIndex + 1) % images.length); });
       modal.addEventListener('click', function (event) { if (event.target === modal) modalClose.click(); });
-      document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.classList.contains('hidden')) modalClose.click(); });
+      document.addEventListener('keydown', function (event) {
+        if (modal.classList.contains('hidden')) return;
+        if (event.key === 'Escape') modalClose.click();
+        if (event.key === 'ArrowLeft') modalPrev.click();
+        if (event.key === 'ArrowRight') modalNext.click();
+      });
     })();
   </script>
 
