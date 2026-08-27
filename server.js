@@ -41,7 +41,7 @@ async function createGoogleContact(nama, phone, orderId, jenisBarang) {
 }
 
 // --- FUNGSI 2: AUTO-UPLOAD FOLDER & FAIL KE GOOGLE DRIVE ---
-async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName) {
+async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
     try {
         const PARENT_FOLDER_ID = '1BtDqeFE14W0OhSaa3CUCDzIQrUBH9Css';
 
@@ -68,19 +68,14 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
             }
         });
 
-        // 3. Upload Gambar Kerosakan (jika ada) dari Buffer
-        if (imageBuffer && imageFileName) {
-            await driveService.files.create({
-                requestBody: {
-                    name: imageFileName,
-                    parents: [folderId]
-                },
-                media: {
-                    mimeType: 'image/jpeg',
-                    body: streamifier.createReadStream(imageBuffer)
-                }
+        // 3. Upload semua gambar kerosakan (jika ada) dari Buffer
+        await Promise.all((imageFiles || []).map((file, index) => {
+            const ext = path.extname(file.originalname) || '.jpg';
+            return driveService.files.create({
+                requestBody: { name: `gambar_${orderId}_${index + 1}${ext}`, parents: [folderId] },
+                media: { mimeType: file.mimetype, body: streamifier.createReadStream(file.buffer) }
             });
-        }
+        }));
 
         console.log(`✅ [GOOGLE DRIVE SUCCESS] Fail & Folder ${orderId} berjaya dimuat naik ke Drive!`);
     } catch (err) {
@@ -89,7 +84,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileNam
 }
 
 // --- FUNGSI KAWALAN GENERATE PDF ---
-function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageBuffer) {
+function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles) {
     return new Promise((resolve, reject) => {
         const doc = new PDFDocument();
         let buffers = [];
@@ -111,10 +106,16 @@ function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, ma
         doc.text(`--------------------------------------------------`);
         doc.moveDown();
 
-        if (imageBuffer) {
+        if (imageFiles && imageFiles.length) {
             doc.text('GAMBAR KEROSAKAN:', { underline: true });
-            doc.moveDown(0.5);
-            doc.image(imageBuffer, { fit: [300, 200], align: 'center' });
+            imageFiles.forEach((file, index) => {
+                if (doc.y > 500) doc.addPage();
+                doc.moveDown(0.5);
+                doc.fontSize(10).text(`Gambar ${index + 1}: ${file.originalname}`);
+                doc.moveDown(0.25);
+                doc.image(file.buffer, { fit: [300, 200], align: 'center' });
+                doc.moveDown();
+            });
         }
 
         doc.end();
@@ -123,7 +124,11 @@ function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, ma
 
 // --- 2. SETTING MULTER & MIDDLEWARE ---
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024, files: 8 },
+    fileFilter: (req, file, cb) => cb(null, ['image/jpeg', 'image/png'].includes(file.mimetype))
+});
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
@@ -166,26 +171,21 @@ function esc(value) {
 }
 
 // --- 3. SUBMIT FORM HANDLER ---
-app.post('/submit-service', upload.single('gambar'), async (req, res) => {
+app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
 
     const { nama, phone, alamat, jenis_barang, model, masalah } = req.body;
     const orderId = `KOD-${String(orderCounter++).padStart(4, '0')}`;
 
-    let imageBuffer = req.file ? req.file.buffer : null;
-    let imageFileName = null;
-    if (req.file) {
-        const ext = path.extname(req.file.originalname) || '.jpg';
-        imageFileName = `gambar_${orderId}${ext}`;
-    }
+    const imageFiles = req.files || [];
 
     // 1. Generate PDF Buffer secara lengkap
-    const pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageBuffer);
+    const pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles);
     pdfStore.set(orderId, pdfBuffer);
 
     // 2. Add Google Contact & Upload ke Drive secara serentak
     await Promise.all([
         createGoogleContact(nama, phone, orderId, jenis_barang),
-        uploadToGoogleDrive(orderId, pdfBuffer, imageBuffer, imageFileName)
+        uploadToGoogleDrive(orderId, pdfBuffer, imageFiles)
     ]);
 
     // 3. Link WhatsApp Manager
