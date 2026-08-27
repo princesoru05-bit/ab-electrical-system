@@ -2491,23 +2491,22 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
             </div>
             <div><label class="block text-sm font-bold text-stone-300 mb-2">Muat Naik Gambar Kerosakan</label>
               <div class="relative">
-                <label id="uploadBox"
-                  class="group flex flex-col items-center justify-center w-full border-2 border-dashed border-stone-700 rounded-xl px-4 py-8 cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 transition"><svg
+                <div id="uploadBox" class="w-full border-2 border-dashed border-stone-700 rounded-xl p-3 hover:border-orange-500 hover:bg-orange-500/5 transition">
+                  <label id="uploadPrompt" class="group flex flex-col items-center justify-center px-4 py-8 cursor-pointer"><svg
                     xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-upload w-8 h-8 text-stone-500 group-hover:text-orange-400 transition mb-3">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" x2="12" y1="3" y2="15"></line>
-                  </svg><span class="text-sm text-stone-400 group-hover:text-orange-400 font-bold transition">Klik atau seret gambar ke sini</span><span class="text-xs text-stone-600 mt-1">PNG atau JPG · maksimum 8 gambar · 10MB setiap satu</span><input
+                  </svg><span class="text-sm text-stone-400 group-hover:text-orange-400 font-bold transition">Klik atau seret gambar ke sini</span><span class="text-xs text-stone-600 mt-1">PNG atau JPG &middot; maksimum 8 gambar &middot; 10MB setiap satu</span><input
                     id="inputGambar" type="file" name="gambar" accept="image/png,image/jpeg" multiple class="hidden"></label>
 
-                <div id="previewBox" class="hidden mt-3 rounded-xl border border-orange-500/30 bg-[#171310] p-3">
-                  <div class="flex items-center justify-between gap-3 mb-3">
-                    <p id="previewSummary" class="text-xs font-bold text-stone-300"></p>
-                    <button type="button" id="btnTambah" class="shrink-0 text-xs font-bold text-orange-400 hover:text-orange-300 underline underline-offset-4">+ Tambah gambar</button>
-                  </div>
-                  <div id="previewList" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+                <div id="previewBox" class="hidden rounded-lg border border-stone-700 bg-[#171310] overflow-hidden">
+                  <div class="px-3 py-2.5 border-b border-stone-800"><p id="previewSummary" class="text-xs font-bold text-stone-300"></p></div>
+                  <div id="previewList" class="divide-y divide-stone-800"></div>
+                  <button type="button" id="btnTambah" class="w-full px-3 py-3 text-left text-xs font-bold text-orange-400 hover:bg-orange-500/10 transition">+ Tambah gambar</button>
+                </div>
                 </div>
               </div>
             </div>
@@ -2528,7 +2527,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
   </div>
 
   <div id="imageModal" class="hidden fixed inset-0 z-50 p-4 bg-black/85 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Pratonton gambar">
-    <button type="button" id="modalClose" class="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-red-600 text-white text-2xl" aria-label="Tutup pratonton">×</button>
+    <button type="button" id="modalClose" class="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-red-600 text-white text-2xl" aria-label="Tutup pratonton">&times;</button>
     <img id="modalImage" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" alt="Pratonton gambar penuh">
   </div>
 
@@ -2536,6 +2535,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
     (function () {
       var input = document.getElementById('inputGambar');
       var uploadBox = document.getElementById('uploadBox');
+      var uploadPrompt = document.getElementById('uploadPrompt');
       var previewBox = document.getElementById('previewBox');
       var previewList = document.getElementById('previewList');
       var previewSummary = document.getElementById('previewSummary');
@@ -2563,25 +2563,26 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
       function render() {
         previewList.innerHTML = '';
         var jumlahSaiz = images.reduce(function (total, item) { return total + item.file.size; }, 0);
-        previewSummary.textContent = images.length + ' gambar dipilih · ' + saiz(jumlahSaiz);
+        previewSummary.textContent = images.length + ' gambar dipilih \u00b7 ' + saiz(jumlahSaiz);
         images.forEach(function (item, index) {
           var card = document.createElement('div');
-          card.className = 'relative overflow-hidden rounded-lg border border-stone-700 bg-black/40';
+          card.className = 'flex items-center gap-3 px-3 py-2.5';
           var image = document.createElement('img');
           image.src = item.url;
           image.alt = 'Pratonton ' + item.file.name;
-          image.className = 'w-full h-28 object-cover cursor-zoom-in hover:opacity-80 transition';
+          image.className = 'w-12 h-12 shrink-0 object-cover rounded-md cursor-zoom-in hover:opacity-80 transition';
           image.addEventListener('click', function () { modalImage.src = item.url; modal.classList.remove('hidden'); });
           var remove = document.createElement('button');
-          remove.type = 'button'; remove.className = 'absolute top-2 right-2 w-8 h-8 rounded-full bg-black/75 hover:bg-red-600 text-white font-bold transition';
+          remove.type = 'button'; remove.className = 'ml-auto shrink-0 w-8 h-8 rounded-md border border-stone-700 hover:border-red-500 hover:bg-red-600 text-stone-400 hover:text-white font-bold transition';
           remove.setAttribute('aria-label', 'Buang ' + item.file.name); remove.textContent = '×';
           remove.addEventListener('click', function () { URL.revokeObjectURL(item.url); images.splice(index, 1); syncInput(); render(); });
           var name = document.createElement('p');
-          name.className = 'px-2 py-2 text-[11px] text-stone-400 truncate'; name.textContent = item.file.name + ' · ' + saiz(item.file.size);
+          name.className = 'min-w-0 flex-1 text-xs text-stone-300 truncate'; name.textContent = item.file.name + ' \u00b7 ' + saiz(item.file.size);
           card.appendChild(image); card.appendChild(remove); card.appendChild(name); previewList.appendChild(card);
         });
         previewBox.classList.toggle('hidden', images.length === 0);
-        uploadBox.classList.toggle('hidden', images.length >= maxImages);
+        uploadPrompt.classList.toggle('hidden', images.length >= maxImages);
+        btnTambah.classList.toggle('hidden', images.length >= maxImages);
       }
 
       function addFiles(files) {
