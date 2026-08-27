@@ -116,27 +116,27 @@ function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, ma
         doc.font('Helvetica-Bold').fontSize(12).fillColor('#ffffff').text(orderId, pageWidth - left - 150, 47, { width: 150, align: 'right' });
 
         doc.y = 142;
-        doc.font('Helvetica-Bold').fontSize(17).fillColor(ink).text('Ringkasan Laporan Servis');
+        doc.font('Helvetica-Bold').fontSize(17).fillColor(ink).text('Service Report Summary');
         doc.moveDown(.35);
-        doc.font('Helvetica').fontSize(9).fillColor(muted).text('Maklumat ini direkod secara automatik ketika borang dihantar.');
+        doc.font('Helvetica').fontSize(9).fillColor(muted).text('This information was recorded automatically when the form was submitted.');
         doc.moveDown(1.1);
 
         const cardTop = doc.y;
         doc.roundedRect(left, cardTop, contentWidth, 137, 8).fillAndStroke('#fff7ed', '#fed7aa');
-        field('Nama pelanggan', nama, left + 16, cardTop + 16, 220);
-        field('No. telefon', phone, left + 270, cardTop + 16, 215);
-        field('Jenis barangan', jenis_barang, left + 16, cardTop + 67, 220);
-        field('Jenama & model', model, left + 270, cardTop + 67, 215);
-        field('Tarikh hantar', tarikhHantar, left + 16, cardTop + 112, contentWidth - 32);
+        field('Customer name', nama, left + 16, cardTop + 16, 220);
+        field('Phone number', phone, left + 270, cardTop + 16, 215);
+        field('Appliance type', jenis_barang, left + 16, cardTop + 67, 220);
+        field('Brand & model', model, left + 270, cardTop + 67, 215);
+        field('Submitted on', tarikhHantar, left + 16, cardTop + 112, contentWidth - 32);
         doc.y = cardTop + 160;
 
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Alamat pelanggan');
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Customer address');
         doc.moveDown(.35);
         doc.roundedRect(left, doc.y, contentWidth, 42, 6).fillAndStroke('#fafaf9', '#e7e5e4');
         doc.font('Helvetica').fontSize(10).fillColor(ink).text(safe(alamat), left + 12, doc.y + 12, { width: contentWidth - 24, height: 22, ellipsis: true });
         doc.y += 62;
 
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Keterangan masalah');
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('Problem description');
         doc.moveDown(.35);
         const problemTop = doc.y;
         doc.roundedRect(left, problemTop, contentWidth, 72, 6).fillAndStroke('#fafaf9', '#e7e5e4');
@@ -144,7 +144,7 @@ function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, ma
         doc.y = problemTop + 98;
 
         if (imageFiles && imageFiles.length) {
-            doc.font('Helvetica-Bold').fontSize(13).fillColor(ink).text(`Gambar kerosakan (${imageFiles.length})`);
+            doc.font('Helvetica-Bold').fontSize(13).fillColor(ink).text(`Damage photos (${imageFiles.length})`);
             doc.moveDown(.5);
             imageFiles.forEach((file, index) => {
                 if (doc.y > 535) doc.addPage();
@@ -159,7 +159,7 @@ function generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, ma
 
         const footerY = doc.page.height - 42;
         doc.moveTo(left, footerY - 10).lineTo(pageWidth - left, footerY - 10).lineWidth(.5).strokeColor('#e7e5e4').stroke();
-        doc.font('Helvetica').fontSize(8).fillColor(muted).text('AB Electrical Engineering  ·  Terima kasih kerana memilih kami.', left, footerY, { width: contentWidth, align: 'center' });
+        doc.font('Helvetica').fontSize(8).fillColor(muted).text('AB Electrical Engineering  ·  Thank you for choosing us.', left, footerY, { width: contentWidth, align: 'center' });
 
         doc.end();
     });
@@ -252,7 +252,7 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <title>Laporan Berjaya - AB Electrical Engineering</title>
+    <title>Report Submitted - AB Electrical Engineering</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -272,7 +272,7 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
             <div class="w-9 h-9 rounded-lg bg-orange-600 flex items-center justify-center font-black text-white">AB</div>
             <div class="leading-tight">
                 <p class="font-black tracking-tight text-white text-sm sm:text-base">AB ELECTRICAL ENGINEERING</p>
-                <p class="text-[11px] uppercase tracking-widest text-stone-500">Pakar Pembaikan Barangan Elektrik</p>
+                <p class="text-[11px] uppercase tracking-widest text-stone-500">Electrical Appliance Repair Specialists</p>
             </div>
         </div>
     </header>
@@ -286,33 +286,33 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white">Laporan Berjaya Dihantar!</h1>
-                <p class="mt-2 text-sm text-stone-400">Terima kasih ${esc(nama)}. Kami akan hubungi anda tidak lama lagi.</p>
+                <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white">Report Submitted Successfully!</h1>
+                <p class="mt-2 text-sm text-stone-400">Thank you, ${esc(nama)}. We will contact you shortly.</p>
             </div>
 
             <div class="mt-7 rounded-xl bg-[#171310] border border-orange-500/30 p-5 text-center">
-                <p class="text-[11px] uppercase tracking-widest text-stone-500">Kod Rujukan Anda</p>
+                <p class="text-[11px] uppercase tracking-widest text-stone-500">Your Reference Code</p>
                 <p id="kod" class="mt-1 font-mono font-bold text-orange-500 text-2xl sm:text-3xl tracking-wider">${esc(orderId)}</p>
                 <button type="button" onclick="salinKod()" id="btnSalin"
                     class="mt-3 text-xs font-semibold text-stone-400 hover:text-orange-400 underline underline-offset-4 transition-colors">
-                    Salin kod
+                    Copy code
                 </button>
             </div>
 
             <div class="mt-6">
-                <p class="text-[11px] uppercase tracking-widest text-stone-500 mb-1">Ringkasan Pesanan</p>
-                ${row('Nama', nama)}
-                ${row('No. Telefon', phone)}
-                ${row('Jenis Barangan', jenis_barang)}
+                <p class="text-[11px] uppercase tracking-widest text-stone-500 mb-1">Order Summary</p>
+        ${row('Name', nama)}
+                ${row('Phone', phone)}
+                ${row('Appliance', jenis_barang)}
                 ${row('Model', model)}
-                ${row('Tarikh Hantar', tarikh)}
+                ${row('Submitted on', tarikh)}
             </div>
 
             <div class="mt-7 space-y-3 animate-fade-up delay-100">
                 <a href="${waLink}" target="_blank" rel="noopener"
                     class="flex items-center justify-center gap-2 w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3.5 px-4 rounded-lg shadow-lg shadow-orange-900/30 transition-colors duration-200">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5 3.5A11.9 11.9 0 0012 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.1 1.6 5.9L0 24l6.4-1.7c1.7.9 3.6 1.4 5.6 1.4 6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.2-6.2-3.4-8.3zM12 21.4c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.8 1 1-3.7-.2-.4a9.5 9.5 0 01-1.5-5.1c0-5.2 4.3-9.5 9.5-9.5 2.5 0 4.9 1 6.7 2.8a9.4 9.4 0 012.8 6.7c0 5.3-4.3 9.5-9.5 9.5zm5.2-7.1c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1a7.7 7.7 0 01-2.3-1.4 8.6 8.6 0 01-1.6-2c-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.2-.6-.3z"/></svg>
-                    Hantar Notis ke WhatsApp Manager
+                    Notify Manager on WhatsApp
                 </a>
 
                 <a href="/download-pdf/${esc(orderId)}"
@@ -320,16 +320,16 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
                     </svg>
-                    Muat Turun Salinan Resit PDF
+                    Download PDF Receipt
                 </a>
 
                 <a href="/" class="block text-center text-sm text-stone-500 hover:text-stone-300 transition-colors pt-1">
-                    Kembali ke Laman Utama
+                    Return to Home
                 </a>
             </div>
 
             <p class="mt-7 text-center text-xs text-stone-500 leading-relaxed">
-                Salinan resit &amp; gambar telah auto-simpan dalam rekod maklumat sistem.
+                A copy of your receipt and photos has been saved automatically.
             </p>
         </div>
     </main>
