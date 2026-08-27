@@ -1,61 +1,128 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="ms" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AB Electrical Engineering - Laporan Kerosakan</title>
+  <title>AB Electrical Engineering - Pakar Pembaikan Barangan Elektrik</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-100 min-h-screen p-4 md:p-8">
-  <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md p-6">
-    <h2 class="text-2xl font-bold text-blue-900 mb-2">AB Electrical Engineering</h2>
-    <p class="text-gray-600 mb-6 text-sm">Sila isi borang di bawah untuk perkhidmatan baiki barang elektrik.</p>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans">
 
-    <form action="/submit-service" method="POST" enctype="multipart/form-data" class="space-y-4">
+  <!-- Navigation Bar -->
+  <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-blue-600 text-white p-2 rounded-lg font-black text-xl tracking-wider">AB</div>
+        <span class="font-bold text-lg md:text-xl text-slate-900 tracking-tight">AB Electrical Engineering</span>
+      </div>
+      <div class="hidden md:flex space-x-8 font-medium text-slate-600">
+        <a href="#utaman" class="hover:text-blue-600 transition">Utama</a>
+        <a href="#perkhidmatan" class="hover:text-blue-600 transition">Perkhidmatan</a>
+        <a href="#kelebihan" class="hover:text-blue-600 transition">Kelebihan</a>
+      </div>
+      <a href="/registration_page.html" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-md shadow-blue-500/20 transition duration-200">
+        Tempah Servis
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="utama" class="relative bg-slate-900 text-white py-20 lg:py-32 overflow-hidden">
+    <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px]"></div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center lg:text-left grid lg:grid-cols-2 gap-12 items-center">
       <div>
-        <label class="block text-sm font-medium text-gray-700">Nama Pelanggan</label>
-        <input type="text" name="nama" required class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+        <span class="inline-block bg-blue-500/10 text-blue-400 border border-blue-500/20 px-4 py-1.5 rounded-full text-sm font-semibold mb-6">
+          ⚡ Perkhidmatan Baiki Rumah Ke Rumah
+        </span>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6">
+          Peti Ais & Mesin Basuh Rosak? <span class="text-blue-500">Kami Baiki Terus!</span>
+        </h1>
+        <p class="text-slate-300 text-lg mb-8 max-w-xl mx-auto lg:mx-0">
+          Perkhidmatan pembaikan barangan elektrik kediaman yang pantas, profesional, dan dipercayai. Buat laporan kerosakan secara terus dalam talian.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+          <a href="/registration_page.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl shadow-lg shadow-blue-600/30 transition text-center">
+            Buat Laporan Kerosakan
+          </a>
+          <a href="#perkhidmatan" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-8 py-4 rounded-xl border border-slate-700 transition text-center">
+            Lihat Perkhidmatan
+          </a>
+        </div>
+      </div>
+      <div class="relative flex justify-center">
+        <div class="w-full max-w-md bg-gradient-to-tr from-blue-600 to-indigo-600 p-1 rounded-3xl shadow-2xl">
+          <div class="bg-slate-900 p-8 rounded-[23px]">
+            <h3 class="text-xl font-bold mb-4 text-blue-400">Waktu Operasi & Liputan</h3>
+            <ul class="space-y-4 text-slate-300">
+              <li class="flex items-center space-x-3">
+                <i class="fa-solid fa-clock text-blue-500"></i>
+                <span>Isnin - Sabtu: 9:00 AM - 6:00 PM</span>
+              </li>
+              <li class="flex items-center space-x-3">
+                <i class="fa-solid fa-location-dot text-blue-500"></i>
+                <span>Lembah Klang & Kawasan Sekitar</span>
+              </li>
+              <li class="flex items-center space-x-3">
+                <i class="fa-solid fa-shield-halved text-blue-500"></i>
+                <span>Jaminan Berwaranti Jangka Masa Tetap</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Perkhidmatan Section -->
+  <section id="perkhidmatan" class="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center max-w-2xl mx-auto mb-16">
+      <h2 class="text-3xl font-bold text-slate-900 sm:text-4xl mb-4">Perkhidmatan Utama</h2>
+      <p class="text-slate-600">Kepakaran utama kami dalam membaik pulih peralatan elektrik barangan rumah.</p>
+    </div>
+    
+    <div class="grid md:grid-cols-3 gap-8">
+      <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-1 transition duration-300">
+        <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-6">
+          <i class="fa-solid fa-box-archive"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Mesin Basuh</h3>
+        <p class="text-slate-600 text-sm leading-relaxed">Masalah tidak boleh spin, air tidak keluar, paparan error code, atau motor bising.</p>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Nombor WhatsApp</label>
-        <input type="tel" name="phone" placeholder="0123456789" required class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+      <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-1 transition duration-300">
+        <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-6">
+          <i class="fa-solid fa-snowflake"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Peti Ais</h3>
+        <p class="text-slate-600 text-sm leading-relaxed">Masalah tidak sejuk, bahagian bawah suam, getah pintu rosak, atau kebocoran gas.</p>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Alamat / Lokasi</label>
-        <input type="text" name="alamat" required class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+      <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 hover:-translate-y-1 transition duration-300">
+        <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-6">
+          <i class="fa-solid fa-tv"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-3">TV & Lain-Lain</h3>
+        <p class="text-slate-600 text-sm leading-relaxed">Masalah skrin gelap, tiada suara, tiada bekalan kuasa, serta pembaikan barangan elektrik lain.</p>
       </div>
+    </div>
+  </section>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Jenis Barangan</label>
-        <select name="jenis_barang" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-          <option value="Mesin Basuh">Mesin Basuh</option>
-          <option value="Peti Ais">Peti Ais</option>
-          <option value="TV">TV / Televisyen</option>
-          <option value="Lain-lain">Lain-lain</option>
-        </select>
-      </div>
+  <!-- CTA Banner -->
+  <section class="bg-blue-600 text-white py-16">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+      <h2 class="text-3xl font-extrabold mb-4">Perlukan Bantuan Pembaikan Segera?</h2>
+      <p class="text-blue-100 mb-8 max-w-xl mx-auto">Hantar borang maklumat kerosakan secara terus untuk mendapatkan pengesahan jadual pemeriksaan.</p>
+      <a href="/registration_page.html" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-8 py-4 rounded-xl shadow-lg transition">
+        Isi Borang Laporan Sekarang
+      </a>
+    </div>
+  </section>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Jenama & Model (Jika Ada)</label>
-        <input type="text" name="model" placeholder="Contoh: Toshiba AW-F820S" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-      </div>
+  <!-- Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800 text-center text-sm">
+    <p>&copy; 2026 AB Electrical Engineering. Hak Cipta Terpelihara.</p>
+  </footer>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Keterangan Masalah</label>
-        <textarea name="masalah" rows="3" required placeholder="Contoh: Air tak keluar, berbunyi bising..." class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Muat Naik Gambar Kerosakan</label>
-        <input type="file" name="gambar" accept="image/*" class="w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-      </div>
-
-      <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
-        Hantar Laporan (Submit)
-      </button>
-    </form>
-  </div>
 </body>
 </html>

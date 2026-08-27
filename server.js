@@ -128,8 +128,14 @@ const upload = multer({ storage: storage });
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
+// Route untuk Halaman Utama (Advance Homepage)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Route untuk Halaman Borang Pendaftaran / Laporan
+app.get('/registration_page.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'registration_page.html'));
 });
 
 const pdfStore = new Map();
