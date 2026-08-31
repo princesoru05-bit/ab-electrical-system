@@ -38,11 +38,12 @@ const peopleService = google.people({ version: 'v1', auth: oauth2Client });
 // Laporan servis dimiliki oleh akaun Google admin (OAuth yang sama seperti Contacts).
 // Ini membolehkan fail masuk terus ke Drive admin tanpa berkongsi folder kepada bot.
 const serviceDriveService = google.drive({ version: 'v3', auth: oauth2Client });
-// Fail pendaftaran boleh menggunakan service account supaya ia kekal berfungsi tanpa
-// refresh token; folder Registration perlu dikongsi sebagai Editor kepada bot ini.
-const registrationDriveAuth = fs.existsSync(SERVICE_ACCOUNT_PATH)
-    ? new google.auth.GoogleAuth({ keyFile: SERVICE_ACCOUNT_PATH, scopes: ['https://www.googleapis.com/auth/drive'] })
-    : oauth2Client;
+// Guna OAuth admin untuk registration juga. Akaun ini telah terbukti boleh menulis
+// laporan servis ke Drive, jadi folder Registration tak perlu dikongsi kepada bot.
+const hasGoogleOAuth = Boolean(CLIENT_ID && CLIENT_SECRET && REFRESH_TOKEN);
+const registrationDriveAuth = hasGoogleOAuth
+    ? oauth2Client
+    : new google.auth.GoogleAuth({ keyFile: SERVICE_ACCOUNT_PATH, scopes: ['https://www.googleapis.com/auth/drive'] });
 const registrationDriveService = google.drive({ version: 'v3', auth: registrationDriveAuth });
 
 // --- FOLDER ID ---
