@@ -35,18 +35,20 @@ const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
 oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
 const peopleService = google.people({ version: 'v1', auth: oauth2Client });
-// Service account membolehkan rekod Drive berfungsi tanpa token OAuth di mesin
-// server. Pastikan folder Registration dikongsi kepada service account sebagai Editor.
-const driveAuth = fs.existsSync(SERVICE_ACCOUNT_PATH)
+// Laporan servis dimiliki oleh akaun Google admin (OAuth yang sama seperti Contacts).
+// Ini membolehkan fail masuk terus ke Drive admin tanpa berkongsi folder kepada bot.
+const serviceDriveService = google.drive({ version: 'v3', auth: oauth2Client });
+// Fail pendaftaran boleh menggunakan service account supaya ia kekal berfungsi tanpa
+// refresh token; folder Registration perlu dikongsi sebagai Editor kepada bot ini.
+const registrationDriveAuth = fs.existsSync(SERVICE_ACCOUNT_PATH)
     ? new google.auth.GoogleAuth({ keyFile: SERVICE_ACCOUNT_PATH, scopes: ['https://www.googleapis.com/auth/drive'] })
     : oauth2Client;
-const driveService = google.drive({ version: 'v3', auth: driveAuth });
+const registrationDriveService = google.drive({ version: 'v3', auth: registrationDriveAuth });
 
 // --- FOLDER ID ---
 const REGISTRATION_FOLDER_ID = process.env.REGISTRATION_FOLDER_ID || '1FBXbGYqEtjqn6JplIuqRbIAy9dHtrX_a';
-// Laporan servis masuk ke folder Registration yang sama secara default. Jika mahu
-// asingkan kemudian, tetapkan SERVICE_REPORT_FOLDER_ID di Render.
-const SERVICE_REPORT_FOLDER_ID = process.env.SERVICE_REPORT_FOLDER_ID || REGISTRATION_FOLDER_ID;
+// Folder khas laporan kerosakan/servis. Registration dan laporan servis dipisahkan.
+const SERVICE_REPORT_FOLDER_ID = process.env.SERVICE_REPORT_FOLDER_ID || '1BtDqeFE14W0OhSaa3CUCDzIQrUBH9Css';
 
 // --- IN-MEMORY USER CACHE ---
 // { username_lowercase: { username, email, passwordHash } }
@@ -55,13 +57,13 @@ let usersCache = {};
 // --- FUNGSI: LOAD SEMUA USER DARI GOOGLE DRIVE ---
 async function loadUsersFromDrive() {
     try {
-        const res = await driveService.files.list({
+        const res = await registrationDriveService.files.list({
             q: `'${REGISTRATION_FOLDER_ID}' in parents and mimeType='text/plain' and trashed=false`,
             fields: 'files(id, name)',
         });
         const files = res.data.files || [];
         for (const file of files) {
-            const content = await driveService.files.get(
+            const content = await registrationDriveService.files.get(
                 { fileId: file.id, alt: 'media' },
                 { responseType: 'text' }
             );
@@ -96,7 +98,7 @@ async function saveUserToDrive(username, email, passwordHash) {
         const content = `USERNAME: ${username}\nEMAIL: ${email}\nPASSWORD_HASH: ${passwordHash}\nREGISTERED ON: ${tarikh}\n`;
 
         // Semak kalau fail dah wujud (duplicate check)
-        const existing = await driveService.files.list({
+        const existing = await registrationDriveService.files.list({
             q: `'${REGISTRATION_FOLDER_ID}' in parents and name='${filename}' and trashed=false`,
             fields: 'files(id)',
         });
@@ -104,7 +106,7 @@ async function saveUserToDrive(username, email, passwordHash) {
             return false; // Username dah wujud
         }
 
-        await driveService.files.create({
+        await registrationDriveService.files.create({
             requestBody: {
                 name: filename,
                 mimeType: 'text/plain',
@@ -152,7 +154,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
         const PARENT_FOLDER_ID = SERVICE_REPORT_FOLDER_ID;
 
         // 1. Buat Sub-folder mengikut orderId di Google Drive
-        const folderRes = await driveService.files.create({
+        const folderRes = await serviceDriveService.files.create({
             requestBody: {
                 name: orderId,
                 mimeType: 'application/vnd.google-apps.folder',
@@ -163,7 +165,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
         const folderId = folderRes.data.id;
 
         // 2. Upload Fail PDF Resit dari Buffer
-        await driveService.files.create({
+        await serviceDriveService.files.create({
             requestBody: {
                 name: `${orderId}.pdf`,
                 parents: [folderId]
@@ -177,7 +179,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
         // 3. Upload semua gambar kerosakan (jika ada) dari Buffer
         await Promise.all((imageFiles || []).map((file, index) => {
             const ext = path.extname(file.originalname) || '.jpg';
-            return driveService.files.create({
+            return serviceDriveService.files.create({
                 requestBody: { name: `gambar_${orderId}_${index + 1}${ext}`, parents: [folderId] },
                 media: { mimeType: file.mimetype, body: streamifier.createReadStream(file.buffer) }
             });
