@@ -26,7 +26,10 @@ app.use(session({
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
-const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'service-account.json');
+const LOCAL_SERVICE_ACCOUNT_PATH = path.join(__dirname, 'service-account.json');
+// Render exposes Secret Files under /etc/secrets. Locally we use the ignored file.
+const SERVICE_ACCOUNT_PATH = process.env.GOOGLE_SERVICE_ACCOUNT_FILE
+    || (fs.existsSync(LOCAL_SERVICE_ACCOUNT_PATH) ? LOCAL_SERVICE_ACCOUNT_PATH : '/etc/secrets/service-account.json');
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
 oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
@@ -40,7 +43,10 @@ const driveAuth = fs.existsSync(SERVICE_ACCOUNT_PATH)
 const driveService = google.drive({ version: 'v3', auth: driveAuth });
 
 // --- FOLDER ID ---
-const REGISTRATION_FOLDER_ID = '1FBXbGYqEtjqn6JplIuqRbIAy9dHtrX_a';
+const REGISTRATION_FOLDER_ID = process.env.REGISTRATION_FOLDER_ID || '1FBXbGYqEtjqn6JplIuqRbIAy9dHtrX_a';
+// Laporan servis masuk ke folder Registration yang sama secara default. Jika mahu
+// asingkan kemudian, tetapkan SERVICE_REPORT_FOLDER_ID di Render.
+const SERVICE_REPORT_FOLDER_ID = process.env.SERVICE_REPORT_FOLDER_ID || REGISTRATION_FOLDER_ID;
 
 // --- IN-MEMORY USER CACHE ---
 // { username_lowercase: { username, email, passwordHash } }
@@ -136,13 +142,14 @@ async function createGoogleContact(nama, phone, orderId, jenisBarang) {
         console.log(`✅ [GOOGLE CONTACT] BERJAYA ADD: ${orderId} - ${nama}`);
     } catch (err) {
         console.error('❌ [GOOGLE CONTACT ERROR]:', err.response ? JSON.stringify(err.response.data) : err.message);
+        throw new Error('Google Contact gagal dikemaskini: ' + err.message);
     }
 }
 
 // --- FUNGSI 2: AUTO-UPLOAD FOLDER & FAIL KE GOOGLE DRIVE ---
 async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
     try {
-        const PARENT_FOLDER_ID = '1BtDqeFE14W0OhSaa3CUCDzIQrUBH9Css';
+        const PARENT_FOLDER_ID = SERVICE_REPORT_FOLDER_ID;
 
         // 1. Buat Sub-folder mengikut orderId di Google Drive
         const folderRes = await driveService.files.create({
@@ -179,6 +186,7 @@ async function uploadToGoogleDrive(orderId, pdfBuffer, imageFiles) {
         console.log(`✅ [GOOGLE DRIVE SUCCESS] Fail & Folder ${orderId} berjaya dimuat naik ke Drive!`);
     } catch (err) {
         console.error('❌ [GOOGLE DRIVE ERROR DETAIL]:', err.response ? JSON.stringify(err.response.data) : err.message);
+        throw new Error('Google Drive gagal dikemaskini: ' + err.message);
     }
 }
 
@@ -431,14 +439,20 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
     const tarikhHantar = new Date().toLocaleString('ms-MY', {
         timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'long', timeStyle: 'short'
     });
-    const pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles, tarikhHantar);
-    pdfStore.set(orderId, pdfBuffer);
+    let pdfBuffer;
+    try {
+        pdfBuffer = await generatePDFBuffer(orderId, nama, phone, alamat, jenis_barang, model, masalah, imageFiles, tarikhHantar);
+        pdfStore.set(orderId, pdfBuffer);
 
-    // 2. Add Google Contact & Upload ke Drive secara serentak
-    await Promise.all([
-        createGoogleContact(nama, phone, orderId, jenis_barang),
-        uploadToGoogleDrive(orderId, pdfBuffer, imageFiles)
-    ]);
+        // Rekod dianggap berjaya hanya selepas kedua-dua integrasi berjaya.
+        await Promise.all([
+            createGoogleContact(nama, phone, orderId, jenis_barang),
+            uploadToGoogleDrive(orderId, pdfBuffer, imageFiles)
+        ]);
+    } catch (err) {
+        console.error('❌ [SUBMIT SERVICE ERROR]:', err.message);
+        return res.status(502).send(`<!doctype html><html lang="ms"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Submission Failed</title><body style="margin:0;background:#171310;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box"><main style="max-width:560px;background:#211916;border:1px solid #ef4444;border-radius:16px;padding:32px"><p style="color:#fb923c;font-weight:bold">AB ELECTRICAL ENGINEERING</p><h1>Rekod belum berjaya disimpan</h1><p style="color:#d6d3d1;line-height:1.6">Google Drive atau Google Contacts tidak dapat dikemaskini. Sila cuba semula selepas admin betulkan sambungan.</p><p style="color:#fca5a5;font-size:14px">${esc(err.message)}</p><a href="/registration_page.html" style="display:inline-block;margin-top:12px;background:#f97316;color:#171310;padding:12px 18px;border-radius:8px;font-weight:bold;text-decoration:none">Kembali ke borang</a></main></body></html>`);
+    }
 
     // 3. Link WhatsApp Manager
     const noMekanik = '60195254754';
@@ -561,6 +575,9 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+        console.warn('⚠️ [GOOGLE CONTACT] CLIENT_ID, CLIENT_SECRET atau REFRESH_TOKEN belum diset. Contact tidak akan dapat dibuat.');
+    }
     // Load semua user dari Drive masa server start
     await loadUsersFromDrive();
 });
