@@ -3197,8 +3197,17 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
       #authModal form > button[type="submit"] { margin-top: .35rem; padding: .9rem 1rem !important; }
       #authModal form > p { margin-top: .2rem; }
       @media (max-width: 480px) { #authModal > div { padding: 1.35rem !important; } }
-      #authErrorModal { position: fixed !important; inset: 0 !important; z-index: 2147483648 !important; display: none !important; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, .82); backdrop-filter: blur(5px); }
-      #authErrorModal.is-open { display: flex !important; }
+      #authErrorModal, #authSuccessModal { position: fixed !important; inset: 0 !important; z-index: 2147483648 !important; display: none !important; align-items: center; justify-content: center; padding: 1.25rem; background: rgba(7, 6, 5, .84); backdrop-filter: blur(7px); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      #authErrorModal.is-open, #authSuccessModal.is-open { display: flex !important; }
+      .auth-feedback-card { width: min(100%, 32rem); border: 1px solid rgba(255, 255, 255, .22); border-radius: 18px; background: linear-gradient(145deg, #29201d, #1d1715); padding: 2.35rem 2.25rem 2rem; text-align: center; box-shadow: 0 24px 72px rgba(0, 0, 0, .62); }
+      .auth-feedback-eyebrow { margin: 0; color: #fb923c; font-size: .72rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+      .auth-feedback-title { margin: .75rem 0 0; color: #fff; font-size: clamp(1.55rem, 4vw, 2rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.18; }
+      .auth-feedback-text { margin: 1rem auto 0; max-width: 25rem; color: #d6d3d1; font-size: .98rem; line-height: 1.65; }
+      .auth-feedback-button { display: inline-flex; width: 100%; min-height: 3.1rem; align-items: center; justify-content: center; margin-top: 1.8rem; border: 0; border-radius: 9px; background: #f97316; color: #171310; font: inherit; font-weight: 800; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+      .auth-feedback-button:hover { background: #fb923c; transform: translateY(-1px); }
+      .auth-feedback-close { margin-top: .9rem; border: 0; background: transparent; color: #a8a29e; font: inherit; font-size: .9rem; font-weight: 650; cursor: pointer; }
+      .auth-feedback-close:hover { color: #fff; }
+      @media (max-width: 480px) { .auth-feedback-card { padding: 2rem 1.35rem 1.5rem; border-radius: 15px; } }
     </style>
     <div id="authModal" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 bg-black/75 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="authTitle">
         <div class="relative w-full max-w-md rounded-2xl border border-orange-500/30 bg-[#211916] p-6 sm:p-8 shadow-2xl shadow-black/50">
@@ -3240,13 +3249,21 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
     </div>
 
     <div id="authErrorModal" role="alertdialog" aria-modal="true" aria-labelledby="authErrorTitle" aria-describedby="authErrorText">
-        <div class="w-full max-w-md rounded-2xl border border-red-500/40 bg-[#211916] p-7 text-center shadow-2xl shadow-black/60 sm:p-9">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-red-400/40 bg-red-500/10 text-2xl font-black text-red-300">!</div>
-            <p class="mt-5 text-xs font-black uppercase tracking-[.2em] text-orange-400">AB Electrical Engineering</p>
-            <h2 id="authErrorTitle" class="mt-2 text-2xl font-black text-white">Tidak dapat diteruskan</h2>
-            <p id="authErrorText" class="mt-3 leading-relaxed text-stone-300"></p>
-            <button id="authErrorAction" type="button" class="mt-7 w-full rounded-lg bg-orange-500 px-4 py-3.5 font-black text-[#171310] transition hover:bg-orange-400">Sila cuba semula</button>
-            <button type="button" onclick="AuthUI.closeError()" class="mt-3 text-sm font-bold text-stone-400 transition hover:text-white">Tutup</button>
+        <div class="auth-feedback-card">
+            <p class="auth-feedback-eyebrow">AB Electrical Engineering</p>
+            <h2 id="authErrorTitle" class="auth-feedback-title">Tidak dapat diteruskan</h2>
+            <p id="authErrorText" class="auth-feedback-text"></p>
+            <button id="authErrorAction" type="button" class="auth-feedback-button">Sila cuba semula</button>
+            <button type="button" onclick="AuthUI.closeError()" class="auth-feedback-close">Tutup</button>
+        </div>
+    </div>
+
+    <div id="authSuccessModal" role="dialog" aria-modal="true" aria-labelledby="authSuccessTitle" aria-describedby="authSuccessText">
+        <div class="auth-feedback-card">
+            <p class="auth-feedback-eyebrow">AB Electrical Engineering</p>
+            <h2 id="authSuccessTitle" class="auth-feedback-title">Pendaftaran berjaya</h2>
+            <p id="authSuccessText" class="auth-feedback-text">Akaun anda telah dicipta dan anda sudah berjaya log masuk.</p>
+            <button id="authSuccessAction" type="button" class="auth-feedback-button">Kembali ke halaman utama</button>
         </div>
     </div>
 
@@ -3262,6 +3279,9 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
         var errorModal = document.getElementById('authErrorModal');
         var errorText = document.getElementById('authErrorText');
         var errorAction = document.getElementById('authErrorAction');
+        var successModal = document.getElementById('authSuccessModal');
+        var successText = document.getElementById('authSuccessText');
+        var successAction = document.getElementById('authSuccessAction');
 
         function setMessage(text, type) {
           message.textContent = text || '';
@@ -3286,6 +3306,13 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
           errorModal.classList.add('is-open');
           errorAction.focus();
         }
+        function showRegistrationSuccess(username) {
+          close();
+          successText.textContent = 'Akaun ' + username + ' telah berjaya didaftarkan. Anda kini boleh menggunakan akaun ini untuk log masuk pada masa akan datang.';
+          successAction.onclick = function () { window.location.assign('/'); };
+          successModal.classList.add('is-open');
+          successAction.focus();
+        }
         async function submit(form, endpoint) {
           if (!form.reportValidity()) return;
           var button = form.querySelector('button[type="submit"]');
@@ -3296,7 +3323,8 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
             var data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || 'Tidak dapat diproses. Cuba lagi.');
             setMessage(data.message + ' Mengalihkan anda ke laman utama…', 'success');
-            setTimeout(function () { window.location.assign('/'); }, 650);
+            if (endpoint === '/register') { form.reset(); showRegistrationSuccess(data.username || 'anda'); }
+            else setTimeout(function () { window.location.assign('/'); }, 650);
           } catch (error) { showError(error.message || 'Ralat sambungan. Cuba lagi.', endpoint === '/register' ? 'register' : 'login'); }
           finally { button.disabled = false; }
         }
