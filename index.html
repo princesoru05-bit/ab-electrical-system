@@ -3207,6 +3207,12 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
       .auth-feedback-button:hover { background: #fb923c; transform: translateY(-1px); }
       .auth-feedback-close { margin-top: .9rem; border: 0; background: transparent; color: #a8a29e; font: inherit; font-size: .9rem; font-weight: 650; cursor: pointer; }
       .auth-feedback-close:hover { color: #fff; }
+      #profileMenu { position: fixed; top: 4.75rem; right: 1.25rem; z-index: 2147483646; display: none; width: min(19rem, calc(100vw - 2.5rem)); padding: 1rem; border: 1px solid rgba(249, 115, 22, .36); border-radius: 12px; background: #211916; color: #fff; box-shadow: 0 20px 48px rgba(0, 0, 0, .52); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      #profileMenu.is-open { display: block; }
+      #profileMenu .profile-caption { margin: 0; color: #a8a29e; font-size: .7rem; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+      #profileMenu .profile-name { overflow: hidden; margin: .35rem 0 1rem; color: #fff; font-size: 1rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+      #profileMenu .profile-logout { width: 100%; border: 1px solid rgba(249, 115, 22, .4); border-radius: 8px; background: rgba(249, 115, 22, .1); color: #fdba74; padding: .72rem .9rem; font: inherit; font-size: .88rem; font-weight: 750; cursor: pointer; transition: background .2s ease, color .2s ease; }
+      #profileMenu .profile-logout:hover { background: #f97316; color: #171310; }
       @media (max-width: 480px) { .auth-feedback-card { padding: 2rem 1.35rem 1.5rem; border-radius: 15px; } }
     </style>
     <div id="authModal" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 bg-black/75 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="authTitle">
@@ -3267,6 +3273,12 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
         </div>
     </div>
 
+    <div id="profileMenu" aria-hidden="true">
+        <p class="profile-caption">Signed in as</p>
+        <p id="profileUsername" class="profile-name"></p>
+        <button type="button" class="profile-logout" onclick="AuthUI.logout()">Log Out</button>
+    </div>
+
     <script>
       window.AuthUI = (function () {
         var modal = document.getElementById('authModal');
@@ -3280,8 +3292,11 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
         var errorText = document.getElementById('authErrorText');
         var errorAction = document.getElementById('authErrorAction');
         var successModal = document.getElementById('authSuccessModal');
+        var successTitle = document.getElementById('authSuccessTitle');
         var successText = document.getElementById('authSuccessText');
         var successAction = document.getElementById('authSuccessAction');
+        var profileMenu = document.getElementById('profileMenu');
+        var profileUsername = document.getElementById('profileUsername');
 
         function setMessage(text, type) {
           message.textContent = text || '';
@@ -3306,13 +3321,23 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
           errorModal.classList.add('is-open');
           errorAction.focus();
         }
-        function showRegistrationSuccess(username) {
+        function showSuccess(titleText, bodyText, buttonText) {
           close();
-          successText.textContent = 'Akaun ' + username + ' telah berjaya didaftarkan. Anda kini boleh menggunakan akaun ini untuk log masuk pada masa akan datang.';
+          successTitle.textContent = titleText;
+          successText.textContent = bodyText;
+          successAction.textContent = buttonText;
           successAction.onclick = function () { window.location.assign('/'); };
           successModal.classList.add('is-open');
           successAction.focus();
         }
+        function showRegistrationSuccess(username) {
+          showSuccess('Pendaftaran berjaya', 'Akaun ' + username + ' telah berjaya didaftarkan. Anda kini boleh menggunakan akaun ini untuk log masuk pada masa akan datang.', 'Kembali ke halaman utama');
+        }
+        function showLoginSuccess(username) {
+          showSuccess('Log masuk berjaya', 'Selamat kembali, ' + username + '. Akaun anda telah disahkan dan sedia untuk digunakan.', 'Teruskan ke halaman utama');
+        }
+        function toggleProfile() { profileMenu.classList.toggle('is-open'); }
+        function logout() { fetch('/logout').finally(function () { window.location.assign('/'); }); }
         async function submit(form, endpoint) {
           if (!form.reportValidity()) return;
           var button = form.querySelector('button[type="submit"]');
@@ -3324,19 +3349,25 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
             if (!response.ok || !data.success) throw new Error(data.message || 'Tidak dapat diproses. Cuba lagi.');
             setMessage(data.message + ' Mengalihkan anda ke laman utama…', 'success');
             if (endpoint === '/register') { form.reset(); showRegistrationSuccess(data.username || 'anda'); }
-            else setTimeout(function () { window.location.assign('/'); }, 650);
+            else { form.reset(); showLoginSuccess(data.username || 'anda'); }
           } catch (error) { showError(error.message || 'Ralat sambungan. Cuba lagi.', endpoint === '/register' ? 'register' : 'login'); }
           finally { button.disabled = false; }
         }
         loginForm.addEventListener('submit', function (event) { event.preventDefault(); submit(loginForm, '/login'); });
         registerForm.addEventListener('submit', function (event) { event.preventDefault(); submit(registerForm, '/register'); });
-        modal.addEventListener('click', function (event) { if (event.target === modal) close(); });
+        // Klik kiri di backdrop tidak menutup modal supaya pengguna boleh select/drag text tanpa hilang borang.
+        modal.addEventListener('contextmenu', function (event) { if (event.target === modal) { event.preventDefault(); close(); } });
         document.addEventListener('keydown', function (event) { if (event.key === 'Escape') { if (errorModal.classList.contains('is-open')) closeError(); else if (!modal.classList.contains('hidden')) close(); } });
         fetch('/check-auth').then(function (response) { return response.json(); }).then(function (data) {
           if (!loginButton) return;
-          if (data.loggedIn) { loginButton.textContent = 'Hi, ' + data.username; loginButton.onclick = function () { fetch('/logout').then(function () { window.location.reload(); }); }; loginButton.title = 'Klik untuk log keluar'; }
+          if (data.loggedIn) {
+            loginButton.textContent = data.username + ' ▾';
+            loginButton.onclick = toggleProfile;
+            loginButton.title = 'Buka menu akaun';
+            profileUsername.textContent = data.username;
+          }
         }).catch(function () {});
-        return { showLogin: function () { open('login'); }, showRegister: function () { open('register'); }, close: close, closeError: closeError };
+        return { showLogin: function () { open('login'); }, showRegister: function () { open('register'); }, close: close, closeError: closeError, logout: logout };
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
