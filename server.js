@@ -5,19 +5,118 @@ const fs = require('fs');
 const path = require('path');
 const streamifier = require('streamifier');
 const { google } = require('googleapis');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
 
 const app = express();
+
+// --- SESSION MIDDLEWARE ---
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'ab-electrical-secret-key-2026',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 hari
+    }
+}));
 
 // --- 1. SETTING GOOGLE OAUTH2 (MANAGER: princesorustorage05) ---
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
+const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'service-account.json');
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
 oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
 const peopleService = google.people({ version: 'v1', auth: oauth2Client });
-const driveService = google.drive({ version: 'v3', auth: oauth2Client });
+// Service account membolehkan rekod Drive berfungsi tanpa token OAuth di mesin
+// server. Pastikan folder Registration dikongsi kepada service account sebagai Editor.
+const driveAuth = fs.existsSync(SERVICE_ACCOUNT_PATH)
+    ? new google.auth.GoogleAuth({ keyFile: SERVICE_ACCOUNT_PATH, scopes: ['https://www.googleapis.com/auth/drive'] })
+    : oauth2Client;
+const driveService = google.drive({ version: 'v3', auth: driveAuth });
+
+// --- FOLDER ID ---
+const REGISTRATION_FOLDER_ID = '1FBXbGYqEtjqn6JplIuqRbIAy9dHtrX_a';
+
+// --- IN-MEMORY USER CACHE ---
+// { username_lowercase: { username, email, passwordHash } }
+let usersCache = {};
+
+// --- FUNGSI: LOAD SEMUA USER DARI GOOGLE DRIVE ---
+async function loadUsersFromDrive() {
+    try {
+        const res = await driveService.files.list({
+            q: `'${REGISTRATION_FOLDER_ID}' in parents and mimeType='text/plain' and trashed=false`,
+            fields: 'files(id, name)',
+        });
+        const files = res.data.files || [];
+        for (const file of files) {
+            const content = await driveService.files.get(
+                { fileId: file.id, alt: 'media' },
+                { responseType: 'text' }
+            );
+            const text = content.data;
+            const lines = text.split('\n');
+            const getData = (label) => {
+                const line = lines.find(l => l.startsWith(label + ':'));
+                return line ? line.slice(label.length + 1).trim() : '';
+            };
+            const username = getData('USERNAME');
+            const email = getData('EMAIL');
+            const passwordHash = getData('PASSWORD_HASH');
+            if (username && passwordHash) {
+                usersCache[username.toLowerCase()] = { username, email, passwordHash };
+            }
+        }
+        console.log(`✅ [AUTH] ${Object.keys(usersCache).length} user(s) diload dari Google Drive.`);
+    } catch (err) {
+        console.error('❌ [AUTH] Gagal load users dari Drive:', err.message);
+    }
+}
+
+// --- FUNGSI: SIMPAN USER BARU KE GOOGLE DRIVE ---
+async function saveUserToDrive(username, email, passwordHash) {
+    try {
+        const tarikh = new Date().toLocaleString('ms-MY', {
+            timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'long', timeStyle: 'short'
+        });
+        const filename = username.replace(/\s+/g, '_') + '.txt';
+        // Kata laluan asal sengaja tidak disimpan. Hash bcrypt ini hanya boleh
+        // digunakan untuk mengesahkan log masuk, bukan untuk melihat password.
+        const content = `USERNAME: ${username}\nEMAIL: ${email}\nPASSWORD_HASH: ${passwordHash}\nREGISTERED ON: ${tarikh}\n`;
+
+        // Semak kalau fail dah wujud (duplicate check)
+        const existing = await driveService.files.list({
+            q: `'${REGISTRATION_FOLDER_ID}' in parents and name='${filename}' and trashed=false`,
+            fields: 'files(id)',
+        });
+        if (existing.data.files && existing.data.files.length > 0) {
+            return false; // Username dah wujud
+        }
+
+        await driveService.files.create({
+            requestBody: {
+                name: filename,
+                mimeType: 'text/plain',
+                parents: [REGISTRATION_FOLDER_ID]
+            },
+            media: {
+                mimeType: 'text/plain',
+                body: streamifier.createReadStream(Buffer.from(content, 'utf-8'))
+            }
+        });
+
+        console.log(`✅ [AUTH] User baru disimpan ke Drive: ${filename}`);
+        return true;
+    } catch (err) {
+        console.error('❌ [AUTH] Gagal simpan user ke Drive:', err.message);
+        throw err;
+    }
+}
 
 // --- FUNGSI 1: AUTO-ADD GOOGLE CONTACT ---
 async function createGoogleContact(nama, phone, orderId, jenisBarang) {
@@ -174,6 +273,7 @@ const upload = multer({
 });
 
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(express.static(__dirname));
 
 // Route untuk Halaman Utama (Advance Homepage)
@@ -191,7 +291,7 @@ const pdfStore = new Map();
 app.get('/download-pdf/:orderId', (req, res) => {
     const orderId = req.params.orderId;
     const pdfBuffer = pdfStore.get(orderId);
-    
+
     if (pdfBuffer) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=${orderId}.pdf`);
@@ -213,7 +313,112 @@ function esc(value) {
         .replace(/'/g, '&#39;');
 }
 
+// =====================================================
+// --- ROUTE: DAFTAR AKAUN BARU (REGISTER) ---
+// =====================================================
+app.post('/register', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+
+    if (!username || !email || !password) {
+        return res.status(400).json({ success: false, message: 'Semua medan wajib diisi.' });
+    }
+
+    if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
+        return res.status(400).json({ success: false, message: 'Username mesti 3–30 aksara (huruf, nombor, titik, sempang atau underscore).' });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password mesti sekurang-kurangnya 6 aksara.' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ success: false, message: 'Format email tidak sah.' });
+    }
+
+    // Semak duplicate dalam cache
+    if (usersCache[username.toLowerCase()]) {
+        return res.status(409).json({ success: false, message: 'Username sudah digunakan. Sila pilih username lain.' });
+    }
+
+    try {
+        const passwordHash = await bcrypt.hash(password, 10);
+        const saved = await saveUserToDrive(username, email, passwordHash);
+
+        if (!saved) {
+            return res.status(409).json({ success: false, message: 'Username sudah digunakan. Sila pilih username lain.' });
+        }
+
+        // Tambah ke cache
+        usersCache[username.toLowerCase()] = { username, email, passwordHash };
+
+        // Auto login lepas register
+        req.session.user = { username, email };
+
+        return res.json({ success: true, message: 'Akaun berjaya didaftarkan!', username });
+    } catch (err) {
+        console.error('❌ [REGISTER ERROR]:', err.message);
+        return res.status(500).json({ success: false, message: 'Ralat server. Cuba lagi.' });
+    }
+});
+
+// =====================================================
+// --- ROUTE: LOG MASUK (LOGIN) ---
+// =====================================================
+app.post('/login', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '');
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Username dan password diperlukan.' });
+    }
+
+    const user = usersCache[username.toLowerCase()];
+
+    if (!user) {
+        return res.status(401).json({ success: false, message: 'Username atau password salah.' });
+    }
+
+    try {
+        const match = await bcrypt.compare(password, user.passwordHash);
+        if (!match) {
+            return res.status(401).json({ success: false, message: 'Username atau password salah.' });
+        }
+
+        req.session.user = { username: user.username, email: user.email };
+        return res.json({ success: true, message: 'Log masuk berjaya!', username: user.username });
+    } catch (err) {
+        console.error('❌ [LOGIN ERROR]:', err.message);
+        return res.status(500).json({ success: false, message: 'Ralat server. Cuba lagi.' });
+    }
+});
+
+// =====================================================
+// --- ROUTE: LOG KELUAR (LOGOUT) ---
+// =====================================================
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) console.error('❌ [LOGOUT ERROR]:', err.message);
+        res.clearCookie('connect.sid');
+        res.json({ success: true });
+    });
+});
+
+// =====================================================
+// --- ROUTE: SEMAK STATUS AUTH ---
+// =====================================================
+app.get('/check-auth', (req, res) => {
+    if (req.session && req.session.user) {
+        return res.json({ loggedIn: true, username: req.session.user.username });
+    }
+    return res.json({ loggedIn: false });
+});
+
+// =====================================================
 // --- 3. SUBMIT FORM HANDLER ---
+// =====================================================
 app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
 
     const { nama, phone, alamat, jenis_barang, model, masalah } = req.body;
@@ -354,6 +559,8 @@ app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    // Load semua user dari Drive masa server start
+    await loadUsersFromDrive();
 });

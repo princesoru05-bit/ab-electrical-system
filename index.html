@@ -2423,7 +2423,10 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                                 <path
                                     d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
                                 </path>
-                            </svg>Book a Service</a><button
+                            </svg>Book a Service</a>
+                            <!-- LOGIN BUTTON -->
+                            <button id="loginBtn" onclick="AuthUI.showLogin()" class="hidden sm:inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 font-black text-sm border border-orange-500/40 hover:border-orange-500 px-4 py-2.5 rounded-lg transition-all">Log In</button>
+                            <button
                             class="md:hidden p-2 rounded-lg text-stone-200 hover:bg-white/10 transition"
                             aria-label="Toggle menu" id="mobileMenuToggle"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -2444,7 +2447,8 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                             class="block px-4 py-3 rounded-lg text-stone-300 hover:bg-orange-500/10 hover:text-orange-400 font-bold transition">Why
                             Us</a><a
                             class="block px-4 py-3 rounded-lg bg-orange-500 text-[#171310] font-black text-center mt-2"
-                            href="/registration_page.html" data-discover="true">Book a Service</a></div>
+                            href="/registration_page.html" data-discover="true">Book a Service</a>
+                        <button type="button" onclick="AuthUI.showLogin()" class="mt-2 block w-full rounded-lg border border-orange-500/40 px-4 py-3 text-center font-black text-orange-400 transition hover:bg-orange-500/10">Log In / Register</button></div>
                 </div>
             </nav>
             <main>
@@ -3182,6 +3186,106 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
             </footer>
         </div>
     </div>
+    <!-- Account pop-up: CSS is explicit because this exported page has a static Tailwind stylesheet. -->
+    <style>
+      #authModal { position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; display: none !important; align-items: center; justify-content: center; padding: 1.25rem; background: rgba(0, 0, 0, .78); backdrop-filter: blur(5px); }
+      #authModal.is-open { display: flex !important; }
+      #authModal > div { width: min(94vw, 34rem) !important; max-width: 34rem !important; max-height: calc(100vh - 2.5rem); overflow-y: auto; padding: 2rem !important; }
+      #authModal form > * + * { margin-top: 1.15rem !important; }
+      #authModal label { line-height: 1.45; }
+      #authModal input { margin-top: .55rem !important; padding: .85rem .95rem !important; }
+      #authModal form > button[type="submit"] { margin-top: .35rem; padding: .9rem 1rem !important; }
+      #authModal form > p { margin-top: .2rem; }
+      @media (max-width: 480px) { #authModal > div { padding: 1.35rem !important; } }
+    </style>
+    <div id="authModal" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 bg-black/75 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="relative w-full max-w-md rounded-2xl border border-orange-500/30 bg-[#211916] p-6 sm:p-8 shadow-2xl shadow-black/50">
+            <button type="button" onclick="AuthUI.close()" class="absolute right-4 top-4 h-9 w-9 rounded-full text-stone-400 hover:bg-white/10 hover:text-white transition" aria-label="Tutup">&#10005;</button>
+            <div class="mb-6 pr-8">
+                <p class="text-xs font-black uppercase tracking-[.2em] text-orange-400">AB Electrical Engineering</p>
+                <h2 id="authTitle" class="mt-2 text-2xl font-black text-white">Log masuk</h2>
+                <p id="authSubtitle" class="mt-1 text-sm text-stone-400">Masuk untuk teruskan ke laman utama.</p>
+            </div>
+
+            <p id="authMessage" class="hidden mb-4 rounded-lg border px-3 py-2.5 text-sm" role="status"></p>
+
+            <form id="loginForm" class="space-y-4" novalidate>
+                <label class="block text-sm font-bold text-stone-200">Username
+                    <input name="username" required autocomplete="username" class="mt-1.5 w-full rounded-lg border border-stone-700 bg-[#171310] px-3 py-3 text-white outline-none transition focus:border-orange-500" placeholder="Contoh: ali_hassan">
+                </label>
+                <label class="block text-sm font-bold text-stone-200">Password
+                    <input name="password" type="password" required autocomplete="current-password" class="mt-1.5 w-full rounded-lg border border-stone-700 bg-[#171310] px-3 py-3 text-white outline-none transition focus:border-orange-500" placeholder="Masukkan password">
+                </label>
+                <button class="w-full rounded-lg bg-orange-500 px-4 py-3 font-black text-[#171310] transition hover:bg-orange-400 disabled:cursor-wait disabled:opacity-70" type="submit">Log In</button>
+                <p class="text-center text-sm text-stone-400">Belum ada akaun? <button type="button" onclick="AuthUI.showRegister()" class="font-bold text-orange-400 hover:text-orange-300">Daftar sekarang</button></p>
+            </form>
+
+            <form id="registerForm" class="hidden space-y-4" novalidate>
+                <label class="block text-sm font-bold text-stone-200">Username
+                    <input name="username" required minlength="3" maxlength="30" autocomplete="username" class="mt-1.5 w-full rounded-lg border border-stone-700 bg-[#171310] px-3 py-3 text-white outline-none transition focus:border-orange-500" placeholder="ali_hassan">
+                    <span class="mt-1 block text-xs font-normal text-stone-500">3–30 aksara: huruf, nombor, titik, sempang atau underscore.</span>
+                </label>
+                <label class="block text-sm font-bold text-stone-200">Email
+                    <input name="email" type="email" required autocomplete="email" class="mt-1.5 w-full rounded-lg border border-stone-700 bg-[#171310] px-3 py-3 text-white outline-none transition focus:border-orange-500" placeholder="nama@email.com">
+                </label>
+                <label class="block text-sm font-bold text-stone-200">Password
+                    <input name="password" type="password" required minlength="6" autocomplete="new-password" class="mt-1.5 w-full rounded-lg border border-stone-700 bg-[#171310] px-3 py-3 text-white outline-none transition focus:border-orange-500" placeholder="Minimum 6 aksara">
+                </label>
+                <button class="w-full rounded-lg bg-orange-500 px-4 py-3 font-black text-[#171310] transition hover:bg-orange-400 disabled:cursor-wait disabled:opacity-70" type="submit">Daftar Akaun</button>
+                <p class="text-center text-sm text-stone-400">Sudah ada akaun? <button type="button" onclick="AuthUI.showLogin()" class="font-bold text-orange-400 hover:text-orange-300">Log masuk</button></p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+      window.AuthUI = (function () {
+        var modal = document.getElementById('authModal');
+        var loginForm = document.getElementById('loginForm');
+        var registerForm = document.getElementById('registerForm');
+        var title = document.getElementById('authTitle');
+        var subtitle = document.getElementById('authSubtitle');
+        var message = document.getElementById('authMessage');
+        var loginButton = document.getElementById('loginBtn');
+
+        function setMessage(text, type) {
+          message.textContent = text || '';
+          message.className = text ? 'mb-4 rounded-lg border px-3 py-2.5 text-sm ' + (type === 'error' ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-green-500/40 bg-green-500/10 text-green-200') : 'hidden';
+        }
+        function open(mode) {
+          var isLogin = mode === 'login';
+          loginForm.classList.toggle('hidden', !isLogin);
+          registerForm.classList.toggle('hidden', isLogin);
+          title.textContent = isLogin ? 'Log masuk' : 'Daftar akaun';
+          subtitle.textContent = isLogin ? 'Masuk untuk teruskan ke laman utama.' : 'Daftar sekali sahaja untuk log masuk pada masa akan datang.';
+          setMessage(''); modal.classList.remove('hidden'); modal.classList.add('flex', 'is-open');
+          setTimeout(function () { (isLogin ? loginForm : registerForm).querySelector('input').focus(); }, 0);
+        }
+        function close() { modal.classList.add('hidden'); modal.classList.remove('flex', 'is-open'); }
+        async function submit(form, endpoint) {
+          if (!form.reportValidity()) return;
+          var button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            var payload = Object.fromEntries(new FormData(form).entries());
+            var response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            var data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Tidak dapat diproses. Cuba lagi.');
+            setMessage(data.message + ' Mengalihkan anda ke laman utama…', 'success');
+            setTimeout(function () { window.location.assign('/'); }, 650);
+          } catch (error) { setMessage(error.message || 'Ralat sambungan. Cuba lagi.', 'error'); }
+          finally { button.disabled = false; }
+        }
+        loginForm.addEventListener('submit', function (event) { event.preventDefault(); submit(loginForm, '/login'); });
+        registerForm.addEventListener('submit', function (event) { event.preventDefault(); submit(registerForm, '/register'); });
+        modal.addEventListener('click', function (event) { if (event.target === modal) close(); });
+        document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+        fetch('/check-auth').then(function (response) { return response.json(); }).then(function (data) {
+          if (!loginButton) return;
+          if (data.loggedIn) { loginButton.textContent = 'Hi, ' + data.username; loginButton.onclick = function () { fetch('/logout').then(function () { window.location.reload(); }); }; loginButton.title = 'Klik untuk log keluar'; }
+        }).catch(function () {});
+        return { showLogin: function () { open('login'); }, showRegister: function () { open('register'); }, close: close };
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
 
 
