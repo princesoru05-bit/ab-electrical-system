@@ -349,16 +349,20 @@ app.post('/register', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Format email tidak sah.' });
     }
 
-    // Semak duplicate dalam cache
-    if (usersCache[username.toLowerCase()]) {
-        return res.status(409).json({ success: false, message: 'Username sudah digunakan. Sila pilih username lain.' });
-    }
+    // NOTA: Sengaja TIDAK semak usersCache di sini.
+    // Cache mungkin lapuk (fail Drive dah dipadam secara manual).
+    // saveUserToDrive() akan semak Drive secara LIVE sebagai sumber kebenaran.
 
     try {
         const passwordHash = await bcrypt.hash(password, 10);
         const saved = await saveUserToDrive(username, email, passwordHash);
 
         if (!saved) {
+            // Fail masih wujud di Drive — kemaskini cache jika belum ada
+            if (!usersCache[username.toLowerCase()]) {
+                // Reload dari Drive untuk dapatkan hash terkini
+                await loadUsersFromDrive();
+            }
             return res.status(409).json({ success: false, message: 'Username sudah digunakan. Sila pilih username lain.' });
         }
 
@@ -386,7 +390,14 @@ app.post('/login', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Username dan password diperlukan.' });
     }
 
-    const user = usersCache[username.toLowerCase()];
+    let user = usersCache[username.toLowerCase()];
+
+    // Jika tidak dijumpai dalam cache, reload dari Drive (handle kes cache lapuk / server restart)
+    if (!user) {
+        console.log(`ℹ️ [LOGIN] '${username}' tidak dalam cache, reload dari Drive...`);
+        await loadUsersFromDrive();
+        user = usersCache[username.toLowerCase()];
+    }
 
     if (!user) {
         return res.status(401).json({ success: false, message: 'Username atau password salah.' });
@@ -405,6 +416,7 @@ app.post('/login', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Ralat server. Cuba lagi.' });
     }
 });
+
 
 // =====================================================
 // --- ROUTE: LOG KELUAR (LOGOUT) ---
