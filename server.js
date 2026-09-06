@@ -127,6 +127,24 @@ async function saveUserToDrive(username, email, passwordHash) {
     }
 }
 
+// --- FUNGSI: SEMAK SAMA ADA FAIL USER MASIH WUJUD DI DRIVE (LIVE CHECK) ---
+// Drive = sumber kebenaran. Kalau fail dipadam → akaun dianggap tidak aktif.
+async function checkUserExistsOnDrive(username) {
+    try {
+        const filename = username.replace(/\s+/g, '_') + '.txt';
+        const res = await registrationDriveService.files.list({
+            q: `'${REGISTRATION_FOLDER_ID}' in parents and name='${filename}' and trashed=false`,
+            fields: 'files(id)',
+        });
+        return res.data.files && res.data.files.length > 0;
+    } catch (err) {
+        console.error('❌ [AUTH] Gagal semak user di Drive:', err.message);
+        // Jika tidak dapat check (network error etc.), bagi benefit of doubt → true
+        return true;
+    }
+}
+
+
 // --- FUNGSI 1: AUTO-ADD GOOGLE CONTACT ---
 async function createGoogleContact(nama, phone, orderId, jenisBarang) {
     try {
@@ -403,6 +421,16 @@ app.post('/login', async (req, res) => {
         return res.status(401).json({ success: false, message: 'Username atau password salah.' });
     }
 
+    // ⚡ LIVE CHECK: Sahkan fail Drive masih wujud (sumber kebenaran)
+    // Kalau admin/owner dah delete fail dari Drive, login ditolak walaupun ada dalam cache.
+    const driveFileExists = await checkUserExistsOnDrive(username);
+    if (!driveFileExists) {
+        console.log(`⚠️ [LOGIN] '${username}' ada dalam cache TAPI fail Drive dah dipadam. Akaun ditolak.`);
+        // Buang dari cache supaya konsisten
+        delete usersCache[username.toLowerCase()];
+        return res.status(401).json({ success: false, message: 'Akaun tidak lagi aktif. Sila daftar semula.' });
+    }
+
     try {
         const match = await bcrypt.compare(password, user.passwordHash);
         if (!match) {
@@ -416,6 +444,7 @@ app.post('/login', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Ralat server. Cuba lagi.' });
     }
 });
+
 
 
 // =====================================================
