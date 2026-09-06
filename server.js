@@ -303,16 +303,20 @@ const upload = multer({
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Route untuk Halaman Borang Pendaftaran / Laporan (Wajib Log Masuk)
+app.get('/registration_page.html', (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.redirect('/?authRequired=1');
+    }
+    res.sendFile(path.join(__dirname, 'registration_page.html'));
+});
+
 app.use(express.static(__dirname));
 
 // Route untuk Halaman Utama (Advance Homepage)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Route untuk Halaman Borang Pendaftaran / Laporan
-app.get('/registration_page.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'registration_page.html'));
 });
 
 const pdfStore = new Map();
@@ -472,6 +476,9 @@ app.get('/check-auth', (req, res) => {
 // --- 3. SUBMIT FORM HANDLER ---
 // =====================================================
 app.post('/submit-service', upload.array('gambar', 8), async (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).send(`<!doctype html><html lang="ms"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sila Log Masuk</title><body style="margin:0;background:#171310;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box"><main style="max-width:560px;background:#211916;border:1px solid #f97316;border-radius:16px;padding:32px;text-align:center"><p style="color:#fb923c;font-weight:bold;letter-spacing:0.1em;text-transform:uppercase;font-size:12px">AB ELECTRICAL ENGINEERING</p><h1 style="font-size:24px;font-weight:800;margin:12px 0">Sila Log Masuk Terlebih Dahulu</h1><p style="color:#d6d3d1;line-height:1.6">Anda perlu mendaftar akaun atau log masuk untuk menghantar borang laporan kerosakan ini.</p><a href="/?authRequired=1" style="display:inline-block;margin-top:16px;background:#f97316;color:#171310;padding:12px 24px;border-radius:8px;font-weight:bold;text-decoration:none">Log Masuk Sekarang</a></main></body></html>`);
+    }
 
     const { nama, phone, alamat, jenis_barang, model, masalah } = req.body;
     const orderId = `KOD-${String(orderCounter++).padStart(4, '0')}`;
